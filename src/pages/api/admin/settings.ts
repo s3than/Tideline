@@ -14,6 +14,7 @@ const SETTINGS_KEYS = [
   'rate_limit_max_attempts',
   'rate_limit_window_minutes',
   'rate_limit_lockout_minutes',
+  'max_sessions_per_user',
   'site_url',
   'webhook_url',
   'webhook_type',
@@ -34,6 +35,7 @@ const DEFAULTS: Record<SettingKey, string> = {
   rate_limit_max_attempts: '5',
   rate_limit_window_minutes: '15',
   rate_limit_lockout_minutes: '15',
+  max_sessions_per_user: '5',
   site_url: '',
   webhook_url: '',
   webhook_type: 'generic',
@@ -144,6 +146,13 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
         const n = Number(val);
         if (!Number.isInteger(n) || n < 1 || n > 1440) {
           return json({ error: `${key} must be an integer 1–1440` }, 400);
+        }
+        setSetting(key, String(n));
+      }
+      if (key === 'max_sessions_per_user') {
+        const n = Number(val);
+        if (!Number.isInteger(n) || n < 1 || n > 20) {
+          return json({ error: `${key} must be an integer 1–20` }, 400);
         }
         setSetting(key, String(n));
       }

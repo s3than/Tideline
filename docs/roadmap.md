@@ -34,6 +34,12 @@ Add a `site_url` setting (the externally reachable base URL of Tideline) and a t
 
 During library sync, fetch the poster path from TMDB (for movies and series) or TVDB (for series) using provider IDs already stored in `providerIds`. Store the resulting CDN URL in a new `externalPosterUrl` column on the `media` table. When configured, webhook notifications use this URL instead of the internal proxy — works even if Tideline is not publicly accessible. Requires admin-configured TMDB/TVDB API keys and additional network calls at sync time.
 
+### Expiry removal via Sonarr / Radarr
+
+When a leaving-soon item expires, provide an admin action to remove it cleanly from the *arr stack and Jellyfin in one step. Movies are deleted via the Radarr API (`DELETE /api/v3/movie/{id}?deleteFiles=true`). Shows use the Sonarr API — whole series when all seasons are expiring, or season-level episode-file bulk deletion plus season unmonitor when only part of a series is leaving. Jellyfin reflects the removal on the next library scan (or an immediate scan triggered via the Jellyfin API). Requires admin-configured Sonarr and Radarr base URLs + API keys in the settings panel. The trigger would live on the admin leaving-soon page as a manual "Remove" button per item, keeping the action deliberate rather than automatic.
+
+**Known complication — orphaned metadata:** Radarr and Sonarr sometimes leave behind a metadata folder (`.nfo` files, artwork, etc.) after deleting media files, which causes Jellyfin to retain a stub entry for the item even after a library scan. The removal flow will need to trigger a Jellyfin `DELETE /Items/{itemId}` call after the *arr deletion to forcibly remove the item from the Jellyfin database, rather than relying on a passive scan to clean it up.
+
 ---
 
 ### Leaving Soon history / archive

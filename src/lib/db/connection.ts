@@ -57,11 +57,14 @@ export function openDb(): Database.Database {
     );
 
     CREATE TABLE IF NOT EXISTS sessions (
-      token          TEXT PRIMARY KEY,
-      jellyfin_id    TEXT NOT NULL REFERENCES users(jellyfin_id) ON DELETE CASCADE,
-      jellyfin_token TEXT NOT NULL DEFAULT '',
-      created_at     TEXT NOT NULL DEFAULT (datetime('now')),
-      expires_at     TEXT NOT NULL
+      token           TEXT PRIMARY KEY,
+      jellyfin_id     TEXT NOT NULL REFERENCES users(jellyfin_id) ON DELETE CASCADE,
+      jellyfin_token  TEXT NOT NULL DEFAULT '',
+      ip_address      TEXT,
+      user_agent      TEXT,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      last_active_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at      TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_sessions_jellyfin_id ON sessions(jellyfin_id);
 
@@ -130,10 +133,20 @@ export function openDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_media_leaving  ON media(library_slug, leaving_soon);
   `);
 
-  // Migration: add jellyfin_token to sessions for existing databases
+  // Migration: add columns to sessions for existing databases
   const sessionCols = (_db.pragma('table_info(sessions)') as { name: string }[]).map((c) => c.name);
   if (!sessionCols.includes('jellyfin_token')) {
     _db.exec(`ALTER TABLE sessions ADD COLUMN jellyfin_token TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!sessionCols.includes('ip_address')) {
+    _db.exec(`ALTER TABLE sessions ADD COLUMN ip_address TEXT`);
+  }
+  if (!sessionCols.includes('user_agent')) {
+    _db.exec(`ALTER TABLE sessions ADD COLUMN user_agent TEXT`);
+  }
+  if (!sessionCols.includes('last_active_at')) {
+    _db.exec(`ALTER TABLE sessions ADD COLUMN last_active_at TEXT`);
+    _db.exec(`UPDATE sessions SET last_active_at = datetime('now')`);
   }
 
   // Migration: add FK cascade to picks table for existing databases

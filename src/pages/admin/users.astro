@@ -2,9 +2,11 @@
 import Layout from '../../layouts/Layout.astro';
 import AdminNav from '../../components/admin/AdminNav.astro';
 import UserManager from '../../components/admin/UserManager.svelte';
-import { getUsersWithSessionCounts } from '../../lib/db';
+import SessionsPanel from '../../components/admin/SessionsPanel.svelte';
+import { getUsersWithSessionCounts, getAllSessions } from '../../lib/db';
 
 const users = getUsersWithSessionCounts();
+const sessions = getAllSessions();
 ---
 
 <Layout title="Admin — Users — Tideline">
@@ -21,6 +23,14 @@ const users = getUsersWithSessionCounts();
         Accounts that have signed in. Evicting sessions signs that user out everywhere immediately.
       </p>
       <UserManager users={users} client:load />
+    </section>
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Sessions</h2>
+      <p class="mb-5 text-sm text-white/40">
+        All active sessions ordered by last activity. Revoke any individual session immediately.
+      </p>
+      <SessionsPanel sessions={sessions} client:load />
     </section>
   </div>
 </Layout>
