@@ -1,5 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
-import { getSessionUser } from './lib/db';
+import { getSessionUser, touchSession } from './lib/db';
 import { isJellyfinConfigured } from './lib/jellyfin/client';
 import './lib/setupToken';
 import { initScheduler } from './lib/scheduler';
@@ -47,6 +47,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
     context.locals.user = session.user;
     context.locals.jellyfinToken = session.jellyfinToken;
+    touchSession(token);
 
     if (pathname.startsWith('/admin') && !session.user.isAdministrator) {
       return context.redirect('/');

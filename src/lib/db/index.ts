@@ -3,6 +3,7 @@ export type {
   LibrarySortView,
   UserRow,
   UserWithSessions,
+  SessionRow,
   LibraryRow,
   LeavingSoonEntry,
   MediaRow,
@@ -27,6 +28,9 @@ export { upsertUser, getUserById, getUsersWithSessionCounts } from './users';
 export {
   createSession,
   getSessionUser,
+  touchSession,
+  enforceSessionLimit,
+  getAllSessions,
   deleteSession,
   deleteSessionsForUser,
   pruneExpiredSessions,

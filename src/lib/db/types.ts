@@ -14,6 +14,17 @@ export interface UserWithSessions extends UserRow {
   activeSessions: number;
 }
 
+export interface SessionRow {
+  token: string;
+  jellyfinId: string;
+  userName: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+  lastActiveAt: string;
+  expiresAt: string;
+}
+
 export interface LibraryRow {
   id: number;
   slug: string;

@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import {
   upsertUser,
   createSession,
+  enforceSessionLimit,
   SESSION_TTL_MS,
   isLoginLocked,
   recordFailedLogin,
@@ -91,7 +92,11 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
     enableMediaPlayback: auth.User.Policy?.EnableMediaPlayback ?? true,
   });
 
-  const { token } = createSession(auth.User.Id, auth.AccessToken);
+  const userAgent = request.headers.get('user-agent');
+  const { token } = createSession(auth.User.Id, auth.AccessToken, ip, userAgent);
+
+  const maxSessions = parseInt(getSetting('max_sessions_per_user', '5'), 10);
+  enforceSessionLimit(auth.User.Id, maxSessions);
 
   cookies.set('auth', token, {
     httpOnly: true,

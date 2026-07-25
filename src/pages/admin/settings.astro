@@ -12,6 +12,7 @@ const envOverrides: Record<string, string | undefined> = {
 };
 const settings = {
   leaving_soon_days_fallback: getSetting('leaving_soon_days_fallback', '30'),
+  max_sessions_per_user: getSetting('max_sessions_per_user', '5'),
   login_rate_limit_source: getSetting('login_rate_limit_source', 'client_address'),
   rate_limit_max_attempts:
     envOverrides.rate_limit_max_attempts ?? getSetting('rate_limit_max_attempts', '5'),
