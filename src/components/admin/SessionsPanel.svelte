@@ -44,7 +44,10 @@
     revokingToken = token;
     error = null;
     try {
-      const resp = await fetch(`/api/admin/sessions/${token}`, { method: 'DELETE' });
+      const resp = await fetch(`/api/admin/sessions/${token}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error ?? 'Failed to revoke session');
       sessions = sessions.filter((s) => s.token !== token);
