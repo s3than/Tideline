@@ -148,7 +148,8 @@
         Max sessions per user
       </label>
       <p class="mt-1 text-xs text-white/40">
-        When a user logs in and exceeds this limit, their oldest session is signed out automatically.
+        When a user logs in and exceeds this limit, their oldest session is signed out
+        automatically.
       </p>
       <div class="mt-3 flex items-center gap-3">
         <input

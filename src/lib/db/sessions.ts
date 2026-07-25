@@ -59,9 +59,7 @@ export function touchSession(token: string): void {
 export function enforceSessionLimit(jellyfinId: string, max: number): void {
   const db = openDb();
   const rows = db
-    .prepare(
-      'SELECT token FROM sessions WHERE jellyfin_id = ? ORDER BY last_active_at DESC',
-    )
+    .prepare('SELECT token FROM sessions WHERE jellyfin_id = ? ORDER BY last_active_at DESC')
     .all(jellyfinId) as { token: string }[];
 
   if (rows.length > max) {
