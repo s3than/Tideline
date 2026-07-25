@@ -1,0 +1,45 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/admin/AdminNav.astro';
+import LibraryManager from '../../components/admin/LibraryManager.svelte';
+import SyncPanel from '../../components/admin/SyncPanel.svelte';
+import { getLibraries, getLibrarySyncedAt, getMediaCount, getSetting } from '../../lib/db';
+
+const libraries = getLibraries();
+const syncEnabled = getSetting('sync_enabled', '1') === '1';
+const syncLibraries = libraries.map((l) => ({
+  slug: l.slug,
+  label: l.label,
+  syncedAt: getLibrarySyncedAt(l.slug),
+  count: getMediaCount(l.slug),
+  isProxy: l.isProxy,
+}));
+---
+
+<Layout title="Admin — Libraries — Tideline">
+  <div class="max-w-4xl mx-auto space-y-8">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Admin</h1>
+    </div>
+
+    <AdminNav />
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Libraries</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Each library maps a label shown in the UI to a Jellyfin virtual library. The slug is
+        auto-generated from the label and cannot be changed after creation.
+      </p>
+      <LibraryManager libraries={libraries} syncEnabled={syncEnabled} client:load />
+    </section>
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Sync</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Sync media details from Jellyfin into the local database. Library browse and month picks use
+        local data after syncing.
+      </p>
+      <SyncPanel libraries={syncLibraries} syncEnabled={syncEnabled} client:load />
+    </section>
+  </div>
+</Layout>

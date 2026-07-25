@@ -1,0 +1,526 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/admin/AdminNav.astro';
+import {
+  getLibraries,
+  getAllKeepRequests,
+  getAllNominations,
+  getAllLeavingSoonMedia,
+  getSetting,
+} from '../../lib/db';
+import { formatDate, leavingTextClass } from '../../lib/format';
+
+const libraries = getLibraries();
+const libraryLabels = new Map(libraries.map((l) => [l.slug, l.label]));
+const leavingSoonEnabledSlugs = new Set(
+  libraries.filter((l) => l.viewLeavingSoon).map((l) => l.slug),
+);
+
+const keepRequests = getAllKeepRequests();
+const nominations = getAllNominations();
+const defaultDays = parseInt(getSetting('leaving_soon_days_fallback', '30'), 10);
+
+type TableRow = {
+  itemId: string;
+  itemName: string;
+  seriesStatus: string | null;
+  librarySlug: string | null;
+  type: 'keep' | 'nominate';
+  users: { name: string; date: string }[];
+};
+
+const rows: TableRow[] = [
+  ...keepRequests.map((k) => ({
+    itemId: k.itemId,
+    itemName: k.itemName,
+    seriesStatus: null,
+    librarySlug: k.librarySlug,
+    type: 'keep' as const,
+    users: k.users.map((u) => ({ name: u.name, date: u.requestedAt })),
+  })),
+  ...nominations.map((n) => ({
+    itemId: n.itemId,
+    itemName:
+      n.itemType === 'Season' && n.seriesName
+        ? `${n.seriesName} : Season ${n.indexNumber ?? '?'}`
+        : n.itemName,
+    seriesStatus: n.itemType === 'Season' ? n.seriesStatus : null,
+    librarySlug: n.librarySlug,
+    type: 'nominate' as const,
+    users: n.users.map((u) => ({ name: u.name, date: u.nominatedAt })),
+  })),
+].sort((a, b) => a.itemName.localeCompare(b.itemName, undefined, { sensitivity: 'base' }));
+
+const leavingSoonItems = getAllLeavingSoonMedia();
+
+// A show is fully leaving only when Jellyfin tagged the Series item itself (which propagates
+// to all its seasons). If only individual seasons are tagged, no Series item appears in the
+// leaving-soon list and those rows should show as "Show : Season X" instead of collapsing.
+const leavingSoonSeriesItemIds = new Set(
+  leavingSoonItems.filter((i) => i.itemType === 'Series').map((i) => i.jellyfinId),
+);
+
+const leavingSeasons = leavingSoonItems.filter((i) => i.itemType === 'Season' && i.seriesId);
+const leavingSeasonsBySeries = new Map<string, typeof leavingSeasons>();
+for (const s of leavingSeasons) {
+  const id = s.seriesId!;
+  if (!leavingSeasonsBySeries.has(id)) leavingSeasonsBySeries.set(id, []);
+  leavingSeasonsBySeries.get(id)!.push(s);
+}
+
+type CollapsedSeries = {
+  name: string;
+  resolvedDays: number;
+  seriesStatus: string | null;
+  librarySlug: string;
+  seasonIds: string[];
+};
+// Pre-collect seriesStatus from Series items before building display rows
+const leavingSoonSeriesStatus = new Map<string, string | null>();
+for (const item of leavingSoonItems) {
+  if (item.itemType === 'Series') leavingSoonSeriesStatus.set(item.jellyfinId, item.seriesStatus);
+}
+
+const collapsedSeriesIds = new Map<string, CollapsedSeries>();
+for (const [seriesId, seasons] of leavingSeasonsBySeries) {
+  if (!leavingSoonSeriesItemIds.has(seriesId)) continue; // partial — don't collapse
+  const first = seasons[0];
+  collapsedSeriesIds.set(seriesId, {
+    name: first.seriesName ?? first.name,
+    resolvedDays: Math.min(...seasons.map((s) => s.resolvedDays)),
+    seriesStatus: leavingSoonSeriesStatus.get(seriesId) ?? null,
+    librarySlug: first.librarySlug,
+    seasonIds: seasons.map((s) => s.jellyfinId),
+  });
+}
+
+type DisplayItem = {
+  jellyfinId: string;
+  linkId: string;
+  name: string;
+  resolvedDays: number;
+  seriesStatus: string | null;
+  librarySlug: string;
+  seasonIds: string[];
+};
+
+// Pass 2: build display items, skipping duplicates
+const displayItems: DisplayItem[] = [];
+const emittedCollapsed = new Set<string>();
+
+for (const item of leavingSoonItems) {
+  if (item.itemType === 'Season' && item.seriesId) {
+    const collapsed = collapsedSeriesIds.get(item.seriesId);
+    if (collapsed) {
+      // Emit collapsed row once per series
+      if (!emittedCollapsed.has(item.seriesId)) {
+        displayItems.push({ jellyfinId: item.seriesId, linkId: item.seriesId, ...collapsed });
+        emittedCollapsed.add(item.seriesId);
+      }
+    } else {
+      // Partial — show "Series Name : Season X"
+      displayItems.push({
+        jellyfinId: item.jellyfinId,
+        linkId: item.jellyfinId,
+        name: `${item.seriesName ?? ''} : Season ${item.indexNumber ?? '?'}`,
+        resolvedDays: item.resolvedDays,
+        seriesStatus: null,
+        librarySlug: item.librarySlug,
+        seasonIds: [item.jellyfinId],
+      });
+    }
+  } else if (item.itemType === 'Series' && collapsedSeriesIds.has(item.jellyfinId)) {
+    // Skip — already represented by the collapsed seasons row
+  } else {
+    displayItems.push({
+      jellyfinId: item.jellyfinId,
+      linkId: item.jellyfinId,
+      name: item.name,
+      resolvedDays: item.resolvedDays,
+      seriesStatus: item.seriesStatus,
+      librarySlug: item.librarySlug,
+      seasonIds: [item.jellyfinId],
+    });
+  }
+}
+
+// Sort within each library: days asc then name asc
+displayItems.sort(
+  (a, b) =>
+    a.librarySlug.localeCompare(b.librarySlug) ||
+    a.resolvedDays - b.resolvedDays ||
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+);
+
+type LibraryGroup = {
+  slug: string;
+  label: string;
+  items: DisplayItem[];
+};
+
+const leavingSoonByLibrary: LibraryGroup[] = [];
+for (const item of displayItems.filter((i) => leavingSoonEnabledSlugs.has(i.librarySlug))) {
+  const slug = item.librarySlug;
+  let group = leavingSoonByLibrary.find((g) => g.slug === slug);
+  if (!group) {
+    group = { slug, label: libraryLabels.get(slug) ?? slug, items: [] };
+    leavingSoonByLibrary.push(group);
+  }
+  group.items.push(item);
+}
+---
+
+<Layout title="Admin — Leaving Soon — Tideline">
+  <div class="max-w-4xl mx-auto space-y-8">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Admin</h1>
+    </div>
+
+    <AdminNav />
+
+    <!-- User nominations -->
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">User nominations</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Keep requests and leaving-soon nominations from users. Tag in Jellyfin to apply the
+        leaving-soon flag; run a sync afterwards to pull the change into the local database.
+      </p>
+
+      <div class="rounded-xl border border-white/10 overflow-hidden">
+        {
+          rows.length === 0 ? (
+            <div class="p-8 text-center text-sm text-white/40">
+              No nominations or keep requests.
+            </div>
+          ) : (
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-white/10 bg-white/5 text-left text-xs font-medium uppercase tracking-widest text-white/40">
+                  <th class="px-4 py-3 w-6" />
+                  <th class="px-4 py-3">Item</th>
+                  <th class="px-4 py-3 hidden sm:table-cell">Library</th>
+                  <th class="px-4 py-3 hidden md:table-cell">Requested by</th>
+                  <th class="px-4 py-3 w-52" />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr class="border-b border-white/5 last:border-0 hover:bg-white/3">
+                    {/* Type badge */}
+                    <td class="px-4 py-3">
+                      {row.type === 'keep' ? (
+                        <span title="Keep request" class="text-accent">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            class="h-4 w-4"
+                          >
+                            <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-2.184C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.5c0 2.852-2.044 5.233-3.885 6.936a22.049 22.049 0 0 1-3.744 2.814l-.019.01-.005.003h-.002a.739.739 0 0 1-.69.001l-.002-.001Z" />
+                          </svg>
+                        </span>
+                      ) : (
+                        <span title="Leaving-soon nomination" class="text-amber-400">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            class="h-4 w-4"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                        </span>
+                      )}
+                    </td>
+                    {/* Item name → media page */}
+                    <td class="px-4 py-3 font-medium">
+                      <a href={`/media/${row.itemId}`} class="hover:text-accent transition-colors">
+                        {row.itemName}
+                      </a>
+                      {row.seriesStatus && (
+                        <span class="ml-2 text-xs text-white/30">{row.seriesStatus}</span>
+                      )}
+                    </td>
+                    {/* Library */}
+                    <td class="px-4 py-3 hidden sm:table-cell text-white/40 text-xs">
+                      {row.librarySlug ? (
+                        (libraryLabels.get(row.librarySlug) ?? row.librarySlug)
+                      ) : (
+                        <span class="italic">Proxy / unknown</span>
+                      )}
+                    </td>
+                    {/* Users */}
+                    <td class="px-4 py-3 hidden md:table-cell text-xs text-white/50">
+                      {row.users.map((u, i) => (
+                        <span>
+                          {u.name}
+                          <span class="text-white/25"> {formatDate(u.date)}</span>
+                          {i < row.users.length - 1 && <span class="text-white/20">, </span>}
+                        </span>
+                      ))}
+                    </td>
+                    {/* Actions */}
+                    <td class="px-4 py-3">
+                      <div class="flex items-center justify-end gap-2">
+                        {row.type === 'nominate' ? (
+                          <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min="1"
+                                max="365"
+                                value={defaultDays}
+                                data-days-input
+                                class="w-16 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-center text-white/80 focus:outline-none focus:border-white/30"
+                              />
+                              <span class="text-xs text-white/30">days</span>
+                            </div>
+                            <button
+                              type="button"
+                              data-action-btn
+                              data-item-id={row.itemId}
+                              data-row-type="nominate"
+                              data-action="tag"
+                              class="whitespace-nowrap rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-500/20 disabled:opacity-40"
+                            >
+                              Tag in Jellyfin
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            data-action-btn
+                            data-item-id={row.itemId}
+                            data-row-type="keep"
+                            data-action="untag"
+                            class="whitespace-nowrap rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-40"
+                          >
+                            Untag in Jellyfin
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          data-dismiss-btn
+                          data-item-id={row.itemId}
+                          data-row-type={row.type}
+                          class="whitespace-nowrap rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/50 transition-colors hover:bg-white/10 hover:text-white/70 disabled:opacity-40"
+                        >
+                          Ignore
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        }
+      </div>
+    </section>
+
+    <!-- Leaving soon media by library -->
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Leaving soon</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Media currently tagged as leaving soon, grouped by library.
+      </p>
+
+      {
+        leavingSoonEnabledSlugs.size === 0 ? (
+          <div class="rounded-xl border border-white/10 p-8 text-center text-sm text-white/40">
+            No libraries are configured for leaving soon. Enable the setting on a library to use
+            this feature.
+          </div>
+        ) : leavingSoonByLibrary.length === 0 ? (
+          <div class="rounded-xl border border-white/10 p-8 text-center text-sm text-white/40">
+            No media is currently tagged as leaving soon.
+          </div>
+        ) : (
+          <div class="space-y-6">
+            {leavingSoonByLibrary.map((group) => (
+              <div class="rounded-xl border border-white/10 overflow-hidden">
+                <div class="px-4 py-2 bg-white/5 border-b border-white/10 text-xs font-semibold uppercase tracking-widest text-white/40">
+                  {group.label}
+                </div>
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-b border-white/10 text-left text-xs font-medium uppercase tracking-widest text-white/30">
+                      <th class="px-4 py-2">Item</th>
+                      <th class="px-4 py-2 w-24 text-right">Days left</th>
+                      <th class="px-4 py-2 w-40" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.items.map((item) => (
+                      <tr class="border-b border-white/5 last:border-0 hover:bg-white/3">
+                        <td class="px-4 py-3 font-medium">
+                          <a
+                            href={`/media/${item.linkId}`}
+                            class="hover:text-accent transition-colors"
+                          >
+                            {item.name}
+                          </a>
+                          {item.seriesStatus && (
+                            <span class="ml-2 text-xs text-white/30">{item.seriesStatus}</span>
+                          )}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                          <span
+                            class={`${leavingTextClass(item.resolvedDays)}${item.resolvedDays <= 7 ? ' font-semibold' : ''}`}
+                          >
+                            {item.resolvedDays}d
+                          </span>
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="flex items-center justify-end gap-2">
+                            <div class="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min="1"
+                                max="365"
+                                value={item.resolvedDays}
+                                data-days-input
+                                class="w-16 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-center text-white/80 focus:outline-none focus:border-white/30"
+                              />
+                              <span class="text-xs text-white/30">days</span>
+                            </div>
+                            <button
+                              type="button"
+                              data-retag-btn
+                              data-season-ids={JSON.stringify(item.seasonIds)}
+                              class="whitespace-nowrap rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-500/20 disabled:opacity-40"
+                            >
+                              Retag
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        )
+      }
+    </section>
+  </div>
+</Layout>
+
+<script>
+  function removeRow(el: HTMLElement) {
+    const tr = el.closest('tr');
+    if (!tr) return;
+    tr.style.transition = 'opacity 0.2s';
+    tr.style.opacity = '0';
+    setTimeout(() => tr.remove(), 200);
+  }
+
+  function getDaysFromRow(btn: HTMLElement): number {
+    const td = btn.closest('td');
+    const input = td?.querySelector<HTMLInputElement>('[data-days-input]');
+    const val = input ? parseInt(input.value, 10) : NaN;
+    return Number.isFinite(val) && val > 0 ? val : 30;
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('[data-action-btn]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const id = btn.dataset.itemId!;
+      const action = btn.dataset.action!;
+
+      btn.textContent = action === 'tag' ? 'Tagging…' : 'Untagging…';
+
+      try {
+        const body = action === 'tag' ? JSON.stringify({ days: getDaysFromRow(btn) }) : undefined;
+        const resp = await fetch(`/api/admin/leaving-soon/${id}`, {
+          method: action === 'tag' ? 'POST' : 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+          btn.textContent = action === 'tag' ? `Tagged (${data.days}d) ✓` : 'Untagged ✓';
+          btn.classList.add('border-green-500/30', 'text-green-400');
+          setTimeout(() => removeRow(btn), 800);
+        } else {
+          btn.textContent = 'Failed';
+          btn.classList.add('text-red-400');
+          btn.disabled = false;
+          console.error(`${action} failed:`, data.error);
+        }
+      } catch {
+        btn.textContent = 'Error';
+        btn.classList.add('text-red-400');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-retag-btn]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const ids: string[] = JSON.parse(btn.dataset.seasonIds ?? '[]');
+      const days = getDaysFromRow(btn);
+      btn.textContent = 'Retagging…';
+
+      try {
+        const results = await Promise.all(
+          ids.map((id) =>
+            fetch(`/api/admin/leaving-soon/${id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ days }),
+            }).then((r) => r.json().then((d) => ({ ok: r.ok, data: d }))),
+          ),
+        );
+        const failed = results.filter((r) => !r.ok);
+        if (failed.length === 0) {
+          btn.textContent = `Tagged (${days}d) ✓`;
+          btn.classList.add('border-green-500/30', 'text-green-400');
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          btn.textContent = `Failed (${failed.length}/${ids.length})`;
+          btn.classList.add('text-red-400');
+          btn.disabled = false;
+        }
+      } catch {
+        btn.textContent = 'Error';
+        btn.classList.add('text-red-400');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-dismiss-btn]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = 'Removing…';
+
+      const id = btn.dataset.itemId!;
+      const type = btn.dataset.rowType!;
+
+      try {
+        const resp = await fetch(`/api/admin/nominations/${id}?type=${type}`, {
+          method: 'DELETE',
+        });
+        if (resp.ok) {
+          removeRow(btn);
+        } else {
+          btn.textContent = 'Failed';
+          btn.disabled = false;
+        }
+      } catch {
+        btn.textContent = 'Error';
+        btn.disabled = false;
+      }
+    });
+  });
+</script>

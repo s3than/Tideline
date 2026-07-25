@@ -1,0 +1,61 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import LibraryGrid from '../../components/LibraryGrid.svelte';
+import {
+  getLibraries,
+  getMediaPage,
+  toLibraryDisplayItem,
+  type LibraryDisplayItem,
+} from '../../lib/db';
+import { getLibraryId, getLibraryItems, jellyfinItemToDisplayItem } from '../../lib/jellyfin';
+import { PAGE_SIZE } from '../../lib/constants';
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/');
+const library = getLibraries().find((l) => l.slug === slug && l.viewInMenu);
+if (!library) return Astro.redirect('/');
+
+let initialItems: LibraryDisplayItem[] = [];
+let total = 0;
+let hasData = false;
+
+const local = getMediaPage(library.slug, 0, PAGE_SIZE);
+if (local.total > 0) {
+  hasData = true;
+  total = local.total;
+  initialItems = local.items.map(toLibraryDisplayItem);
+} else {
+  const jellyfinId = await getLibraryId(library.jellyfinName);
+  if (jellyfinId) {
+    hasData = true;
+    const result = await getLibraryItems(jellyfinId, library.itemType, 0, PAGE_SIZE);
+    total = result.total;
+    initialItems = result.items.map(jellyfinItemToDisplayItem);
+  }
+}
+---
+
+<Layout title={`${library.label} — Tideline`}>
+  <div class="max-w-7xl mx-auto">
+    <div class="mb-8 flex items-baseline gap-3">
+      <h1 class="text-2xl font-bold tracking-tight">{library.label}</h1>
+      {total > 0 && <span class="text-sm text-white/40">{total} items</span>}
+    </div>
+
+    {
+      hasData ? (
+        <LibraryGrid
+          slug={slug}
+          initialItems={initialItems}
+          total={total}
+          pageSize={PAGE_SIZE}
+          client:load
+        />
+      ) : (
+        <div class="rounded-2xl border border-white/10 p-12 text-center text-white/40">
+          <p>Could not connect to Jellyfin library "{library.jellyfinName}".</p>
+        </div>
+      )
+    }
+  </div>
+</Layout>

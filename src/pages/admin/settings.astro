@@ -1,0 +1,63 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/admin/AdminNav.astro';
+import SettingsPanel from '../../components/admin/SettingsPanel.svelte';
+import NotificationsPanel from '../../components/admin/NotificationsPanel.svelte';
+import { getSetting } from '../../lib/db';
+
+const envOverrides: Record<string, string | undefined> = {
+  rate_limit_max_attempts: process.env.RATE_LIMIT_MAX_ATTEMPTS,
+  rate_limit_window_minutes: process.env.RATE_LIMIT_WINDOW_MINUTES,
+  rate_limit_lockout_minutes: process.env.RATE_LIMIT_LOCKOUT_MINUTES,
+};
+const settings = {
+  leaving_soon_days_fallback: getSetting('leaving_soon_days_fallback', '30'),
+  login_rate_limit_source: getSetting('login_rate_limit_source', 'client_address'),
+  rate_limit_max_attempts:
+    envOverrides.rate_limit_max_attempts ?? getSetting('rate_limit_max_attempts', '5'),
+  rate_limit_window_minutes:
+    envOverrides.rate_limit_window_minutes ?? getSetting('rate_limit_window_minutes', '15'),
+  rate_limit_lockout_minutes:
+    envOverrides.rate_limit_lockout_minutes ?? getSetting('rate_limit_lockout_minutes', '15'),
+};
+const notificationSettings = {
+  site_url: getSetting('site_url', ''),
+  webhook_url: getSetting('webhook_url', ''),
+  webhook_type: getSetting('webhook_type', 'generic'),
+  webhook_username: getSetting('webhook_username', ''),
+  webhook_avatar_url: getSetting('webhook_avatar_url', ''),
+  webhook_notification_types: getSetting(
+    'webhook_notification_types',
+    'tagged,untagged,keep_requested,nominated',
+  ),
+};
+const envLocked = {
+  rate_limit_max_attempts: !!envOverrides.rate_limit_max_attempts,
+  rate_limit_window_minutes: !!envOverrides.rate_limit_window_minutes,
+  rate_limit_lockout_minutes: !!envOverrides.rate_limit_lockout_minutes,
+};
+---
+
+<Layout title="Admin — Settings — Tideline">
+  <div class="max-w-4xl mx-auto space-y-8">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Admin</h1>
+    </div>
+
+    <AdminNav />
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Settings</h2>
+      <p class="mb-5 text-sm text-white/40">Global application settings.</p>
+      <SettingsPanel settings={settings} envLocked={envLocked} client:load />
+    </section>
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Notifications</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Configure webhook notifications for leaving-soon events and user activity.
+      </p>
+      <NotificationsPanel settings={notificationSettings} client:load />
+    </section>
+  </div>
+</Layout>

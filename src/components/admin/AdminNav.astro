@@ -1,0 +1,28 @@
+---
+const links = [
+  { href: '/admin/libraries', label: 'Libraries' },
+  { href: '/admin/leaving-soon', label: 'Leaving Soon' },
+  { href: '/admin/schedule', label: 'Schedule' },
+  { href: '/admin/settings', label: 'Settings' },
+  { href: '/admin/users', label: 'Users' },
+];
+const path = Astro.url.pathname.replace(/\/$/, '');
+---
+
+<nav class="flex gap-1 border-b border-white/10">
+  {
+    links.map((link) => (
+      <a
+        href={link.href}
+        class:list={[
+          '-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+          path === link.href
+            ? 'border-accent text-white'
+            : 'border-transparent text-white/50 hover:text-white/80',
+        ]}
+      >
+        {link.label}
+      </a>
+    ))
+  }
+</nav>

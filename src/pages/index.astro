@@ -1,0 +1,339 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SpotlightCard from '../components/SpotlightCard.astro';
+import LeavingSoonCard from '../components/LeavingSoonCard.astro';
+import ScrollShelf from '../components/ScrollShelf.astro';
+import {
+  getLibraryId,
+  getMonthPick,
+  getLeavingSoonItems,
+  enrichLeavingSoon,
+  sortByDays,
+  itemDays,
+  type JellyfinItem,
+} from '../lib/jellyfin';
+import {
+  getLibraries,
+  getLibrarySyncedAt,
+  getLeavingSoonMedia,
+  getUserLibrarySort,
+  getKeepRequestItemIdsForUser,
+  type LibrarySort,
+} from '../lib/db';
+
+function resolveSort(slug: string, defaultSort: LibrarySort): LibrarySort {
+  const userId = Astro.locals.user?.jellyfinId;
+  const stored = userId ? getUserLibrarySort(userId, slug, 'leaving_soon') : null;
+  return stored ?? defaultSort;
+}
+
+type ShowEntry =
+  | { grouped: false; item: JellyfinItem }
+  | { grouped: true; item: JellyfinItem; seasons: JellyfinItem[] };
+
+function entryName(entry: ShowEntry): string {
+  return entry.grouped ? (entry.item.SeriesName ?? entry.item.Name) : entry.item.Name;
+}
+
+function entryMinExpiry(entry: ShowEntry): number {
+  if (entry.grouped) return Math.min(...entry.seasons.map((s) => itemDays(s)));
+  return itemDays(entry.item);
+}
+
+// Keep requests attach to the series for grouped season cards — "don't remove
+// this" means the show, not an individual season row.
+function entryKeepId(entry: ShowEntry): string {
+  return entry.grouped ? (entry.item.SeriesId ?? entry.item.Id) : entry.item.Id;
+}
+
+function sortEntries(entries: ShowEntry[], sort: LibrarySort): ShowEntry[] {
+  if (sort === 'expiry') return entries; // already ordered by days remaining
+  const dir = sort === 'alpha_asc' ? 1 : -1;
+  return [...entries].sort(
+    (a, b) => dir * entryName(a).localeCompare(entryName(b), undefined, { sensitivity: 'base' }),
+  );
+}
+
+function groupByShow(items: JellyfinItem[]): ShowEntry[] {
+  const seasonMap = new Map<string, JellyfinItem[]>();
+  const standalones: JellyfinItem[] = [];
+
+  for (const item of items) {
+    if (item.Type === 'Season' && item.SeriesId) {
+      const arr = seasonMap.get(item.SeriesId) ?? [];
+      arr.push(item);
+      seasonMap.set(item.SeriesId, arr);
+    } else {
+      standalones.push(item);
+    }
+  }
+
+  const result: ShowEntry[] = standalones.map((item) => ({ grouped: false, item }));
+  const standaloneIds = new Set(standalones.map((s) => s.Id));
+
+  for (const [seriesId, seasons] of seasonMap.entries()) {
+    if (standaloneIds.has(seriesId)) continue;
+    const sorted = [...seasons].sort((a, b) => (a.IndexNumber ?? 0) - (b.IndexNumber ?? 0));
+    result.push({ grouped: true, item: sorted[0], seasons: sorted });
+  }
+
+  result.sort((a, b) => {
+    return entryMinExpiry(a) - entryMinExpiry(b);
+  });
+
+  return result;
+}
+
+// Load library configs from DB, then resolve each to a Jellyfin library ID
+const libraries = getLibraries();
+
+if (libraries.length === 0 && Astro.locals.user?.isAdministrator) {
+  return Astro.redirect('/admin/setup');
+}
+const noLibraries = libraries.length === 0;
+
+const jellyfinIds = await Promise.all(libraries.map((lib) => getLibraryId(lib.jellyfinName)));
+
+const resolvedLibs = libraries.map((lib, i) => ({ ...lib, jellyfinId: jellyfinIds[i] }));
+const leavingSoonLibs = resolvedLibs.filter(
+  (lib): lib is (typeof resolvedLibs)[number] & { itemType: 'Movie' | 'Series' } =>
+    lib.viewLeavingSoon && lib.itemType !== 'Collection',
+);
+
+// Fetch picks and leaving-soon for all libraries in parallel.
+// Synced libraries (Movie and Series) are served from DB; Jellyfin is fallback for unsynced only.
+const leavingSoonTypes = (type: 'Movie' | 'Series') =>
+  type === 'Series' ? 'Series,Season' : 'Movie';
+
+const [picks, leavingEntries] = await Promise.all([
+  Promise.all(
+    resolvedLibs.map((lib) =>
+      lib.jellyfinId && lib.itemType !== 'Collection'
+        ? getMonthPick(lib.jellyfinId, lib)
+        : Promise.resolve(null),
+    ),
+  ),
+  Promise.all(
+    leavingSoonLibs.map(async (lib): Promise<ShowEntry[]> => {
+      const synced = getLibrarySyncedAt(lib.slug);
+      let enrichedItems: JellyfinItem[];
+
+      if (synced) {
+        enrichedItems = getLeavingSoonMedia(lib.slug).map((row) => ({
+          Id: row.jellyfinId,
+          Name: row.name,
+          Type: row.itemType as 'Movie' | 'Series' | 'Season',
+          Tags: [],
+          ProductionYear: row.year ?? undefined,
+          ImageTags: { Primary: row.posterTag ?? undefined },
+          Overview: row.overview ?? undefined,
+          resolvedDays: row.resolvedDays,
+          SeriesId: row.seriesId ?? undefined,
+          SeriesName: row.seriesName ?? undefined,
+          IndexNumber: row.indexNumber ?? undefined,
+        }));
+      } else if (lib.jellyfinId) {
+        const raw = await getLeavingSoonItems(lib.jellyfinId, leavingSoonTypes(lib.itemType));
+        enrichedItems = enrichLeavingSoon(raw);
+      } else {
+        enrichedItems = [];
+      }
+
+      const entries: ShowEntry[] =
+        lib.itemType === 'Series'
+          ? groupByShow(enrichedItems)
+          : sortByDays(enrichedItems).map((item): ShowEntry => ({ grouped: false, item }));
+      return sortEntries(entries, resolveSort(lib.slug, lib.sort));
+    }),
+  ),
+]);
+
+const keepSet = Astro.locals.user
+  ? getKeepRequestItemIdsForUser(Astro.locals.user.jellyfinId)
+  : new Set<string>();
+
+const now = new Date();
+const monthName = now.toLocaleString('en-GB', { month: 'long' });
+---
+
+<Layout title="Tideline">
+  {
+    noLibraries && (
+      <div class="max-w-7xl mx-auto rounded-2xl border border-white/10 p-12 text-center text-white/40">
+        <p class="text-lg">This media hub hasn't been set up yet.</p>
+        <p class="mt-1 text-sm">Ask an admin to connect a Jellyfin library.</p>
+      </div>
+    )
+  }
+
+  <!-- Picks -->
+  {
+    !noLibraries && (
+      <>
+        <section class="max-w-7xl mx-auto">
+          <h1 class="mb-6 text-2xl font-bold tracking-tight">
+            Picks for <span class="text-accent">{monthName}</span>
+          </h1>
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {resolvedLibs.map(
+              (lib, i) =>
+                picks[i] && <SpotlightCard item={picks[i]!} label={`${lib.label} of the Month`} />,
+            )}
+          </div>
+        </section>
+
+        {/* Leaving Soon */}
+        {leavingSoonLibs.length > 0 && (
+          <section class="max-w-7xl mx-auto">
+            <h2 class="mb-8 text-2xl font-bold tracking-tight flex items-center gap-3">
+              <span class="inline-block h-2.5 w-2.5 rounded-full bg-accent animate-pulse" />
+              Leaving Soon
+            </h2>
+
+            <div class="space-y-12">
+              {leavingSoonLibs.map((lib, i) => {
+                const entries = leavingEntries[i];
+                const activeSort = resolveSort(lib.slug, lib.sort);
+                return (
+                  <div data-library-section={lib.slug}>
+                    <div class="mb-4 flex items-center justify-between">
+                      <h3 class="text-sm font-semibold uppercase tracking-widest text-white/50">
+                        {lib.label} <span class="text-white/30">({entries.length})</span>
+                      </h3>
+                      {entries.length > 0 && (
+                        <div
+                          class="flex gap-0.5 rounded-lg bg-white/5 p-0.5"
+                          data-sort-selector
+                          data-slug={lib.slug}
+                        >
+                          <button
+                            data-sort-value="alpha_asc"
+                            aria-label="Sort A to Z"
+                            class:list={[
+                              'sort-btn rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
+                              activeSort === 'alpha_asc'
+                                ? 'bg-white/15 text-white'
+                                : 'text-white/40 hover:text-white/70',
+                            ]}
+                          >
+                            A–Z
+                          </button>
+                          <button
+                            data-sort-value="alpha_desc"
+                            aria-label="Sort Z to A"
+                            class:list={[
+                              'sort-btn rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
+                              activeSort === 'alpha_desc'
+                                ? 'bg-white/15 text-white'
+                                : 'text-white/40 hover:text-white/70',
+                            ]}
+                          >
+                            Z–A
+                          </button>
+                          <button
+                            data-sort-value="expiry"
+                            aria-label="Sort by expiry date"
+                            class:list={[
+                              'sort-btn rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
+                              activeSort === 'expiry'
+                                ? 'bg-white/15 text-white'
+                                : 'text-white/40 hover:text-white/70',
+                            ]}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              class="h-3.5 w-3.5"
+                            >
+                              <path
+                                fill-rule="evenodd"
+                                d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z"
+                                clip-rule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {entries.length > 0 ? (
+                      <ScrollShelf rows={entries.length > 6 ? 2 : 1} itemCount={entries.length}>
+                        {entries.map((entry) => (
+                          <div
+                            data-sort-item
+                            data-sort-name={entryName(entry)}
+                            data-sort-expiry={String(entryMinExpiry(entry))}
+                          >
+                            <LeavingSoonCard
+                              item={entry.item}
+                              seasons={entry.grouped ? entry.seasons : undefined}
+                              keepId={entryKeepId(entry)}
+                              keepActive={keepSet.has(entryKeepId(entry))}
+                            />
+                          </div>
+                        ))}
+                      </ScrollShelf>
+                    ) : (
+                      <p class="py-2 text-sm text-white/30">Nothing leaving soon right now.</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </>
+    )
+  }
+</Layout>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-sort-selector]').forEach((selector) => {
+    const slug = selector.dataset.slug!;
+    const section = selector.closest<HTMLElement>('[data-library-section]')!;
+    const shelf = section.querySelector<HTMLElement>('[data-shelf]')!;
+    const grid = shelf?.firstElementChild as HTMLElement | null;
+
+    selector.querySelectorAll<HTMLButtonElement>('button[data-sort-value]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sort = btn.dataset.sortValue as 'alpha_asc' | 'alpha_desc' | 'expiry';
+
+        // Update active button style
+        selector.querySelectorAll<HTMLButtonElement>('.sort-btn').forEach((b) => {
+          const isActive = b === btn;
+          b.classList.toggle('bg-white/15', isActive);
+          b.classList.toggle('text-white', isActive);
+          b.classList.toggle('text-white/40', !isActive);
+          b.classList.toggle('hover:text-white/70', !isActive);
+        });
+
+        // Re-order DOM
+        if (grid) {
+          const items = Array.from(grid.querySelectorAll<HTMLElement>('[data-sort-item]'));
+          if (sort === 'expiry') {
+            items.sort((a, b) => Number(a.dataset.sortExpiry) - Number(b.dataset.sortExpiry));
+          } else {
+            const dir = sort === 'alpha_asc' ? 1 : -1;
+            items.sort(
+              (a, b) =>
+                dir *
+                (a.dataset.sortName ?? '').localeCompare(b.dataset.sortName ?? '', undefined, {
+                  sensitivity: 'base',
+                }),
+            );
+          }
+          items.forEach((item) => grid.appendChild(item));
+          // Trigger scroll arrow recalc
+          shelf.dispatchEvent(new Event('scroll'));
+        }
+
+        // Persist per-user, server-side
+        fetch(`/api/preferences/library-sort/${slug}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sort, view: 'leaving_soon' }),
+        }).catch(() => {});
+      });
+    });
+  });
+</script>

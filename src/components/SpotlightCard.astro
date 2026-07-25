@@ -1,0 +1,105 @@
+---
+import type { JellyfinItem } from '../lib/jellyfin';
+import { backdropUrl, posterUrl, jellyfinWebUrl } from '../lib/jellyfin';
+
+interface Props {
+  item: JellyfinItem;
+  label: string; // e.g. "Movie of the Month"
+}
+
+const { item, label } = Astro.props;
+const bg = backdropUrl(item, 1280);
+const poster = posterUrl(item, 300);
+const watchUrl = jellyfinWebUrl(item.Id);
+const mediaUrl = `/media/${item.Id}`;
+const rating = item.CommunityRating ? item.CommunityRating.toFixed(1) : null;
+const year = item.ProductionYear ?? null;
+const raw = item.Overview?.trim() ?? '';
+const overview = raw.length > 500 ? `${raw.slice(0, 497)}…` : raw || null;
+---
+
+<article class="relative overflow-hidden rounded-2xl bg-surface-card min-h-[280px] flex">
+  {
+    bg && (
+      <div
+        class="absolute inset-0 bg-cover bg-center opacity-30"
+        style={`background-image: url('${bg}')`}
+      />
+    )
+  }
+  <div class="absolute inset-0 bg-gradient-to-r from-[#0d0d1a] via-[#0d0d1a]/80 to-transparent">
+  </div>
+
+  <!-- Stretched link — covers the whole card; Watch Now sits above via z-index -->
+  <a href={mediaUrl} class="absolute inset-0 z-[2]" aria-label={`View details for ${item.Name}`}
+  ></a>
+
+  <div class="relative flex gap-6 p-6 w-full">
+    {
+      poster && (
+        <img
+          src={poster}
+          alt={item.Name}
+          class="hidden sm:block w-32 flex-shrink-0 rounded-lg object-cover shadow-xl"
+          loading="eager"
+          fetchpriority="high"
+        />
+      )
+    }
+
+    <div class="flex flex-col justify-center gap-3 min-w-0">
+      <span class="text-xs font-semibold uppercase tracking-widest text-accent">{label}</span>
+
+      <div>
+        <h2 class="text-2xl font-bold leading-tight">{item.Name}</h2>
+        <div class="mt-1 flex items-center gap-3 text-sm text-white/50">
+          {year && <span>{year}</span>}
+          {
+            rating && (
+              <span class="flex items-center gap-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  class="h-3.5 w-3.5 text-yellow-400"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401Z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                {rating}
+              </span>
+            )
+          }
+        </div>
+      </div>
+
+      {
+        overview && (
+          <p class="line-clamp-4 text-sm text-white/70 leading-relaxed max-w-xl">{overview}</p>
+        )
+      }
+
+      <a
+        href={watchUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="relative z-[3] mt-1 inline-flex items-center gap-2 self-start rounded-lg bg-accent px-4 py-2 text-sm font-semibold hover:bg-accent-hover transition-colors"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          class="h-4 w-4"
+        >
+          <path
+            d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z"
+          ></path>
+        </svg>
+        Watch Now
+      </a>
+    </div>
+  </div>
+</article>

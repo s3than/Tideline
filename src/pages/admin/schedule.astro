@@ -1,0 +1,35 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/admin/AdminNav.astro';
+import SchedulePanel from '../../components/admin/SchedulePanel.svelte';
+import { getSetting } from '../../lib/db';
+
+const scheduleEnabled = getSetting('sync_schedule_enabled', '0') === '1';
+const intervalHours = parseInt(getSetting('sync_interval_hours', '6'), 10);
+const lastSync = getSetting('last_scheduled_sync', '') || null;
+const nextSync = getSetting('next_scheduled_sync', '') || null;
+---
+
+<Layout title="Admin — Schedule — Tideline">
+  <div class="max-w-4xl mx-auto space-y-8">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Admin</h1>
+    </div>
+
+    <AdminNav />
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Scheduled Tasks</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Configure recurring background tasks. Tasks only run when their toggle is enabled.
+      </p>
+      <SchedulePanel
+        scheduleEnabled={scheduleEnabled}
+        intervalHours={intervalHours}
+        lastSync={lastSync}
+        nextSync={nextSync}
+        client:load
+      />
+    </section>
+  </div>
+</Layout>

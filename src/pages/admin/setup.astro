@@ -1,0 +1,33 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import LibraryManager from '../../components/admin/LibraryManager.svelte';
+import { getLibraries, getSetting } from '../../lib/db';
+
+const libraries = getLibraries();
+const syncEnabled = getSetting('sync_enabled', '1') === '1';
+if (libraries.length > 0) return Astro.redirect('/admin');
+---
+
+<Layout title="Set up — Tideline">
+  <div class="max-w-4xl mx-auto space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Let's connect your Jellyfin libraries</h1>
+      <p class="mt-1 text-sm text-white/40">
+        Pick which Jellyfin libraries this media hub should track. You can add more, or fine-tune
+        these later, from the Admin panel — once at least one is connected, head to Discover from
+        the sidebar.
+      </p>
+    </div>
+
+    <LibraryManager libraries={libraries} syncEnabled={syncEnabled} client:load />
+
+    <div class="flex justify-end">
+      <a
+        href="/"
+        class="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-hover"
+      >
+        Setup Complete →
+      </a>
+    </div>
+  </div>
+</Layout>

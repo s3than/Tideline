@@ -1,0 +1,251 @@
+---
+
+---
+
+<div class="relative flex-1" id="search-wrap">
+  <div class="relative">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30"
+    >
+      <path
+        fill-rule="evenodd"
+        d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"
+        clip-rule="evenodd"></path>
+    </svg>
+    <input
+      id="search-input"
+      type="search"
+      placeholder="Search movies, shows, anime…"
+      autocomplete="off"
+      class="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-4 text-sm text-white placeholder-white/30 outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
+    />
+  </div>
+  <div
+    id="search-results"
+    class="absolute left-0 right-0 top-full z-50 mt-1 hidden overflow-hidden rounded-xl border border-white/10 bg-surface shadow-2xl sm:right-auto `sm:w-170"
+  >
+    <div class="flex max-h-[70vh] flex-col sm:flex-row">
+      <div
+        id="search-list"
+        class="max-h-[35vh] shrink-0 overflow-y-auto border-b border-white/10 py-2 sm:max-h-none sm:w-64 sm:border-b-0 sm:border-r"
+      >
+      </div>
+      <div id="search-detail" class="flex-1 overflow-y-auto hidden"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  import type { SearchHit } from '../lib/search';
+
+  function esc(str: unknown): string {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function formatMeta(item: SearchHit): string {
+    return [item.year, item.rating ? '★ ' + Number(item.rating).toFixed(1) : null]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  function renderDetailContent(item: SearchHit, watchUrl: string | null): string {
+    const meta = formatMeta(item);
+    return `
+    ${
+      item.backdrop
+        ? `
+      <div class="relative h-40 overflow-hidden">
+        <img src="${esc(item.backdrop)}" alt="" class="h-full w-full object-cover opacity-50" />
+        <div class="absolute inset-0 bg-gradient-to-t from-[#1a1a2e] via-[#1a1a2e]/40 to-transparent"></div>
+      </div>`
+        : '<div class="h-4"></div>'
+    }
+    <div class="px-5 ${item.backdrop ? '-mt-10 relative' : 'pt-4'} pb-5">
+      <p class="text-base font-semibold leading-snug">${esc(item.title)}</p>
+      ${meta ? `<p class="mt-1 text-xs text-white/40">${esc(meta)}</p>` : ''}
+      ${item.overview ? `<p class="mt-3 text-xs leading-relaxed text-white/60 line-clamp-8">${esc(item.overview)}</p>` : ''}
+      ${
+        watchUrl
+          ? `
+        <a href="${esc(watchUrl)}" target="_blank" rel="noopener noreferrer"
+           class="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" />
+          </svg>
+          Watch in Jellyfin
+        </a>`
+          : ''
+      }
+    </div>`;
+  }
+
+  function init() {
+    if (!document.getElementById('search-input')) return;
+
+    const wrap = document.getElementById('search-wrap') as HTMLElement;
+    const input = document.getElementById('search-input') as HTMLInputElement;
+    const panel = document.getElementById('search-results') as HTMLElement;
+    const list = document.getElementById('search-list') as HTMLElement;
+    const detail = document.getElementById('search-detail') as HTMLElement;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    function hide() {
+      panel.classList.add('hidden');
+    }
+    function show() {
+      panel.classList.remove('hidden');
+      if (!isMobile()) detail.classList.remove('hidden');
+    }
+
+    function isMobile() {
+      return window.innerWidth < 640;
+    }
+
+    function showDetail(item: SearchHit, withLink: boolean) {
+      detail.innerHTML = renderDetailContent(
+        item,
+        withLink && item.watchUrl ? item.watchUrl : null,
+      );
+    }
+
+    function renderGroup(label: string, items: SearchHit[]): string {
+      if (!items.length) return '';
+      return `
+      <div class="px-2 pt-3">
+        <p class="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-white/30">
+          ${esc(label)} <span class="text-white/20">(${items.length})</span>
+        </p>
+        ${items
+          .map(
+            (item) => `
+          <a href="${esc(item.url)}"
+             class="search-hit flex items-center gap-3 rounded-lg px-2 py-1.5 transition hover:bg-white/5"
+             data-item="${esc(JSON.stringify(item))}"
+             >
+            ${
+              item.poster
+                ? `<img src="${esc(item.poster)}" alt="" class="h-11 w-7 flex-shrink-0 rounded object-cover" />`
+                : `<div class="h-11 w-7 flex-shrink-0 rounded bg-white/10"></div>`
+            }
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium">${esc(item.title)}</p>
+              ${item.year ? `<p class="text-xs text-white/40">${item.year}</p>` : ''}
+            </div>
+          </a>`,
+          )
+          .join('')}
+      </div>`;
+    }
+
+    function showMobileDetail(item: SearchHit) {
+      list.classList.add('hidden');
+      detail.classList.remove('hidden');
+
+      detail.innerHTML = `
+      <button class="mobile-back flex w-full items-center gap-2 border-b border-white/10 px-4 py-3 text-sm text-white/60 hover:text-white transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4 flex-shrink-0">
+          <path fill-rule="evenodd" d="M7.72 12.53a.75.75 0 0 1 0-1.06l7.5-7.5a.75.75 0 1 1 1.06 1.06L9.31 12l6.97 6.97a.75.75 0 1 1-1.06 1.06l-7.5-7.5Z" clip-rule="evenodd" />
+        </svg>
+        Back to results
+      </button>
+      ${renderDetailContent(item, item.watchUrl || item.url)}`;
+
+      detail.querySelector('.mobile-back')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetMobileView();
+      });
+    }
+
+    function resetMobileView() {
+      list.classList.remove('hidden');
+      detail.classList.add('hidden');
+      detail.innerHTML = '';
+    }
+
+    function parseHit(el: HTMLElement): SearchHit | null {
+      try {
+        return JSON.parse(el.dataset.item ?? '') as SearchHit;
+      } catch {
+        return null;
+      }
+    }
+
+    list.addEventListener('mouseover', (e) => {
+      if (isMobile()) return;
+      const hit = (e.target as Element).closest<HTMLElement>('.search-hit');
+      if (!hit) return;
+      const item = parseHit(hit);
+      if (item) showDetail(item, false);
+    });
+
+    list.addEventListener('click', (e) => {
+      if (!isMobile()) return;
+      const hit = (e.target as Element).closest<HTMLElement>('.search-hit');
+      if (!hit) return;
+      e.preventDefault();
+      const item = parseHit(hit);
+      if (item) showMobileDetail(item);
+    });
+
+    async function search(q: string) {
+      const resp = await fetch('/api/search?q=' + encodeURIComponent(q));
+      if (!resp.ok) {
+        hide();
+        return;
+      }
+      const { groups } = (await resp.json()) as {
+        groups: { slug: string; label: string; items: SearchHit[] }[];
+      };
+
+      const html = groups.map((g) => renderGroup(g.label, g.items)).join('');
+
+      resetMobileView();
+
+      if (!html) {
+        list.innerHTML = '<p class="p-4 text-sm text-white/40">No results found.</p>';
+        detail.innerHTML = '';
+      } else {
+        list.innerHTML = html + '<div class="h-2"></div>';
+        if (!isMobile()) {
+          const first = list.querySelector<HTMLElement>('.search-hit');
+          if (first) {
+            const item = parseHit(first);
+            if (item) showDetail(item, false);
+          }
+        }
+      }
+      show();
+    }
+
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (q.length < 2) {
+        hide();
+        return;
+      }
+      timer = setTimeout(() => search(q), 300);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        hide();
+        input.blur();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!wrap.contains(e.target as Node)) hide();
+    });
+  }
+
+  init();
+</script>

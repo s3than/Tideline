@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+@theme {
+  --color-surface: #1a1a2e;
+  --color-surface-card: #16213e;
+  --color-surface-elevated: #0f3460;
+  --color-accent: #e94560;
+  --color-accent-hover: #c73652;
+  --font-family-sans: Inter, system-ui, sans-serif;
+}

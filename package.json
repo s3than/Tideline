@@ -1,0 +1,40 @@
+{
+  "name": "tideline",
+  "type": "module",
+  "version": "0.1.0",
+  "license": "MIT",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "start": "node ./dist/server/entry.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@astrojs/node": "^11",
+    "@astrojs/svelte": "^9",
+    "@fontsource-variable/inter": "^5.2.5",
+    "@tailwindcss/vite": "^4.3.1",
+    "astro": "^7",
+    "better-sqlite3": "^12.11.1",
+    "svelte": "^5.56.3",
+    "tailwindcss": "^4.3.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "@types/better-sqlite3": "^7.6.13",
+    "prettier": "^3",
+    "prettier-plugin-astro": "^0.14",
+    "prettier-plugin-svelte": "^3",
+    "typescript": "^6.0.3"
+  },
+  "allowScripts": {
+    "sharp@0.34.5": true,
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.28.1": true
+  }
+}

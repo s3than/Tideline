@@ -1,0 +1,9 @@
+apiVersion: v2
+name: tideline
+description: A self-hosted media hub for Jellyfin — Discover picks, Leaving Soon shelves, and library browse backed by a local SQLite cache.
+type: application
+version: 0.2.1
+appVersion: '1.1.1'
+home: https://codeberg.org/s3than/Tideline
+sources:
+  - https://codeberg.org/s3than/Tideline

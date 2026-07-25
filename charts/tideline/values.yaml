@@ -1,0 +1,71 @@
+# Tideline uses SQLite on the data volume — keep this at 1.
+replicaCount: 1
+
+image:
+  repository: codeberg.org/s3than/tideline
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ''
+  annotations: {}
+  host: tideline.example.com
+  tls: []
+  # tls:
+  #   - secretName: tideline-tls
+  #     hosts:
+  #       - tideline.example.com
+
+# /data holds the SQLite database. Without persistence the app still runs,
+# but configuration, sessions, and synced media are lost on restart.
+persistence:
+  enabled: true
+  existingClaim: ''
+  storageClass: ''
+  accessMode: ReadWriteOnce
+  size: 1Gi
+
+jellyfin:
+  # All optional — leave empty to configure via the first-run setup wizard,
+  # which persists to the database on the data volume.
+  url: ''
+  internalUrl: ''
+  # API key, either inline (stored in a chart-managed Secret)…
+  apiKey: ''
+  # …or from an existing Secret containing the key below.
+  existingSecret: ''
+  existingSecretKey: 'jellyfin-api-key'
+
+# Extra environment variables, e.g. IMAGE_CACHE_MAX_MB or RATE_LIMIT_*.
+env: []
+# env:
+#   - name: IMAGE_CACHE_MAX_MB
+#     value: "100"
+
+resources: {}
+# resources:
+#   requests:
+#     cpu: 100m
+#     memory: 256Mi
+#   limits:
+#     memory: 512Mi
+
+# The node image runs as UID 1000 ("node"); fsGroup makes the PVC writable.
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

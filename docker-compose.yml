@@ -1,0 +1,13 @@
+services:
+  tideline:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '4321:4321'
+    env_file:
+      - .env
+    volumes:
+      - tideline-data:/data
+
+volumes:
+  tideline-data:

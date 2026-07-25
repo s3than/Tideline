@@ -1,0 +1,134 @@
+---
+interface Props {
+  rows?: 1 | 2;
+  itemCount: number;
+}
+
+const { rows = 2, itemCount } = Astro.props;
+
+const cols = Math.ceil(itemCount / rows);
+const rowsClass = rows === 1 ? 'grid-rows-1' : 'grid-rows-2';
+---
+
+<div class="relative" data-shelf-wrap>
+  <button
+    type="button"
+    data-shelf-scroll="left"
+    aria-label="Scroll left"
+    class="absolute left-2 top-1/2 z-20 hidden md:flex -translate-y-1/2 h-10 w-10 items-center justify-center rounded-full bg-black/70 hover:bg-black backdrop-blur text-white shadow-lg shadow-black/40 opacity-0 pointer-events-none transition-opacity"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+      <path
+        fill-rule="evenodd"
+        d="M15.78 5.22a.75.75 0 0 1 0 1.06L9.06 13l6.72 6.72a.75.75 0 1 1-1.06 1.06l-7.25-7.25a.75.75 0 0 1 0-1.06l7.25-7.25a.75.75 0 0 1 1.06 0Z"
+        clip-rule="evenodd"></path>
+    </svg>
+  </button>
+
+  <button
+    type="button"
+    data-shelf-scroll="right"
+    aria-label="Scroll right"
+    class="absolute right-2 top-1/2 z-20 hidden md:flex -translate-y-1/2 h-10 w-10 items-center justify-center rounded-full bg-black/70 hover:bg-black backdrop-blur text-white shadow-lg shadow-black/40 opacity-0 pointer-events-none transition-opacity"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
+      <path
+        fill-rule="evenodd"
+        d="M8.22 5.22a.75.75 0 0 1 1.06 0l7.25 7.25a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 1 1-1.06-1.06L14.94 13 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+        clip-rule="evenodd"></path>
+    </svg>
+  </button>
+
+  <div
+    data-shelf
+    class="overflow-x-auto pb-3 scroll-smooth scrollbar-thin [scrollbar-color:rgb(255_255_255/0.2)_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent"
+  >
+    <div
+      class={`grid grid-flow-col ${rowsClass} gap-3`}
+      data-cols={cols}
+      style={`grid-template-columns: repeat(${cols}, 10rem)`}
+    >
+      <slot />
+    </div>
+  </div>
+</div>
+
+<script>
+  const SHOW = ['opacity-100', 'pointer-events-auto'];
+  const HIDE = ['opacity-0', 'pointer-events-none'];
+
+  function setVisible(btn: HTMLElement, visible: boolean) {
+    const add = visible ? SHOW : HIDE;
+    const remove = visible ? HIDE : SHOW;
+    btn.classList.add(...add);
+    btn.classList.remove(...remove);
+  }
+
+  function update(wrap: HTMLElement) {
+    const container = wrap.querySelector<HTMLElement>('[data-shelf]');
+    const left = wrap.querySelector<HTMLElement>('[data-shelf-scroll="left"]');
+    const right = wrap.querySelector<HTMLElement>('[data-shelf-scroll="right"]');
+    if (!container || !left || !right) return;
+
+    const overflow = container.scrollWidth > container.clientWidth + 1;
+    const atStart = container.scrollLeft <= 1;
+    const atEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 1;
+
+    setVisible(left, overflow && !atStart);
+    setVisible(right, overflow && !atEnd);
+  }
+
+  const GAP = 12; // gap-3, matches library grid
+
+  // Mirror the library's responsive column counts so cards are the same size.
+  function cardWidthForContainer(w: number): number {
+    if (w >= 1280) return Math.floor((w - 6 * GAP) / 7);
+    if (w >= 1024) return Math.floor((w - 5 * GAP) / 6);
+    if (w >= 768) return Math.floor((w - 4 * GAP) / 5);
+    if (w >= 640) return Math.floor((w - 3 * GAP) / 4);
+    return Math.floor((w - 2 * GAP) / 3);
+  }
+
+  function fitAllGrids() {
+    const wraps = Array.from(document.querySelectorAll<HTMLElement>('[data-shelf-wrap]'));
+    if (!wraps.length) return;
+
+    let containerWidth = 0;
+    for (const wrap of wraps) {
+      const shelf = wrap.querySelector<HTMLElement>('[data-shelf]');
+      if (shelf && shelf.clientWidth > containerWidth) containerWidth = shelf.clientWidth;
+    }
+    if (!containerWidth) return;
+
+    const cardWidth = cardWidthForContainer(containerWidth);
+
+    for (const wrap of wraps) {
+      const grid = wrap.querySelector<HTMLElement>('[data-shelf] > *');
+      if (!grid) continue;
+      const cols = parseInt((grid as HTMLElement).dataset.cols ?? '1', 10);
+      grid.style.gridTemplateColumns = `repeat(${cols}, ${cardWidth}px)`;
+    }
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-shelf-wrap]').forEach((wrap) => {
+    const container = wrap.querySelector<HTMLElement>('[data-shelf]');
+    if (!container) return;
+
+    update(wrap);
+    container.addEventListener('scroll', () => update(wrap), { passive: true });
+
+    wrap.querySelectorAll<HTMLElement>('[data-shelf-scroll]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const dir = btn.dataset.shelfScroll === 'left' ? -1 : 1;
+        container.scrollBy({ left: dir * container.clientWidth * 0.85, behavior: 'smooth' });
+      });
+    });
+  });
+
+  fitAllGrids();
+
+  window.addEventListener('resize', () => {
+    fitAllGrids();
+    document.querySelectorAll<HTMLElement>('[data-shelf-wrap]').forEach(update);
+  });
+</script>
