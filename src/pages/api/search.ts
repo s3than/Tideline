@@ -31,7 +31,7 @@ function jellyfinHit(item: JellyfinItem): SearchHit {
   };
 }
 
-function localHit(row: MediaRow, origin: string): SearchHit {
+function localHit(row: MediaRow): SearchHit {
   return {
     id: row.jellyfinId,
     title: row.name,
@@ -39,17 +39,17 @@ function localHit(row: MediaRow, origin: string): SearchHit {
     rating: row.communityRating,
     overview: row.overview,
     poster: row.posterTag
-      ? `${origin}/api/image/Primary/${row.jellyfinId}?tag=${encodeURIComponent(row.posterTag)}&w=80`
+      ? `/api/image/Primary/${row.jellyfinId}?tag=${encodeURIComponent(row.posterTag)}&w=80`
       : null,
     backdrop: row.backdropTag
-      ? `${origin}/api/image/Backdrop/${row.jellyfinId}?tag=${encodeURIComponent(row.backdropTag)}&w=640`
+      ? `/api/image/Backdrop/${row.jellyfinId}?tag=${encodeURIComponent(row.backdropTag)}&w=640`
       : null,
     url: `/media/${row.jellyfinId}`,
     watchUrl: jellyfinWebUrl(row.jellyfinId),
   };
 }
 
-export const GET: APIRoute = async ({ url, locals, request }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
   if (!locals.user) return json({ groups: [] }, 401);
 
   const q = url.searchParams.get('q')?.trim() ?? '';
@@ -57,13 +57,12 @@ export const GET: APIRoute = async ({ url, locals, request }) => {
 
   const libraries = getLibraries();
   const syncDisabled = getSetting('sync_enabled', '1') === '0';
-  const origin = new URL(request.url).origin;
   const userToken = locals.jellyfinToken;
 
   const groups = await Promise.all(
     libraries.map(async (lib): Promise<SearchGroup> => {
       if (!lib.isProxy && !syncDisabled) {
-        const items = searchMedia(lib.slug, q, 6).map((row) => localHit(row, origin));
+        const items = searchMedia(lib.slug, q, 6).map((row) => localHit(row));
         return { slug: lib.slug, label: lib.label, items };
       }
       const libraryId = await getLibraryId(lib.jellyfinName);
