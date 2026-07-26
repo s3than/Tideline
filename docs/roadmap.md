@@ -6,10 +6,6 @@ Planned and proposed features, roughly ordered by effort. Nothing here is commit
 
 ## High value, low effort
 
-### Scheduled auto-sync
-
-A configurable sync interval (e.g. every 6 hours) so the database stays fresh without an admin manually clicking "Sync All". A new `sync_interval_minutes` setting in the admin panel would trigger a server-side background timer (or a lightweight cron endpoint) that runs the existing sync logic on a schedule. New arrivals, leaving-soon changes, and metadata updates would propagate automatically.
-
 ### Recently Added shelf
 
 `dateAdded` is already stored in the `media` table. A "New this month" (or "Recently added") section on the Discover page — alongside the existing Picks and Leaving Soon shelves — would close the typical media-hub discovery loop without any schema changes.
@@ -25,10 +21,6 @@ A feed at `/feeds/leaving-soon` (or per-library variants at `/feeds/leaving-soon
 ---
 
 ## Medium effort, high impact
-
-### Notification thumbnails — internal (site URL)
-
-Add a `site_url` setting (the externally reachable base URL of Tideline) and a toggle to include poster thumbnails in webhook notifications. When enabled, the poster URL is constructed from `site_url` + the existing image proxy endpoint, after making that endpoint publicly accessible (no auth required). Gives Discord/Slack rich embed thumbnails with zero third-party dependency, at the cost of Tideline needing to be reachable from the internet.
 
 ### Notification thumbnails — external provider (TMDB/TVDB)
 
