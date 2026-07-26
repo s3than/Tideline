@@ -3,10 +3,12 @@ import Layout from '../../layouts/Layout.astro';
 import AdminNav from '../../components/admin/AdminNav.astro';
 import UserManager from '../../components/admin/UserManager.svelte';
 import SessionsPanel from '../../components/admin/SessionsPanel.svelte';
-import { getUsersWithSessionCounts, getAllSessions } from '../../lib/db';
+import UserSettingsPanel from '../../components/admin/UserSettingsPanel.svelte';
+import { getUsersWithSessionCounts, getAllSessions, getSetting } from '../../lib/db';
 
 const users = getUsersWithSessionCounts();
 const sessions = getAllSessions();
+const maxSessions = parseInt(getSetting('max_sessions_per_user', '5'), 10);
 ---
 
 <Layout title="Admin — Users — Tideline">
@@ -16,6 +18,14 @@ const sessions = getAllSessions();
     </div>
 
     <AdminNav />
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Session limit</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Maximum number of concurrent sessions allowed per user.
+      </p>
+      <UserSettingsPanel maxSessions={maxSessions} client:load />
+    </section>
 
     <section>
       <h2 class="mb-1 text-lg font-semibold">Users</h2>

@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import AdminNav from '../../components/admin/AdminNav.astro';
+import LeavingSoonSettingsPanel from '../../components/admin/LeavingSoonSettingsPanel.svelte';
 import {
   getLibraries,
   getAllKeepRequests,
@@ -177,6 +178,16 @@ for (const item of displayItems.filter((i) => leavingSoonEnabledSlugs.has(i.libr
     </div>
 
     <AdminNav />
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Default days</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Fallback used when a leaving-soon item has no <code class="rounded bg-white/10 px-1 text-xs"
+          >lv-N</code
+        > tag.
+      </p>
+      <LeavingSoonSettingsPanel daysFallback={defaultDays} client:load />
+    </section>
 
     <!-- User nominations -->
     <section>

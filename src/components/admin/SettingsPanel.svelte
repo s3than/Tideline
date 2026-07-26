@@ -7,8 +7,6 @@
   type RateLimitSource = 'client_address' | 'x_forwarded_for' | 'disabled';
 
   type Settings = {
-    leaving_soon_days_fallback: string;
-    max_sessions_per_user: string;
     login_rate_limit_source: string;
     rate_limit_max_attempts: string;
     rate_limit_window_minutes: string;
@@ -59,12 +57,6 @@
     },
   }: { settings: Settings; envLocked?: EnvLocked } = $props();
 
-  let daysFallback: number = $state(
-    untrack(() => parseInt(initial.leaving_soon_days_fallback, 10)),
-  );
-  let maxSessionsPerUser: number = $state(
-    untrack(() => parseInt(initial.max_sessions_per_user, 10)),
-  );
   let rateLimitSource: RateLimitSource = $state(
     untrack(() => initial.login_rate_limit_source as RateLimitSource),
   );
@@ -94,8 +86,6 @@
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          leaving_soon_days_fallback: daysFallback,
-          max_sessions_per_user: maxSessionsPerUser,
           login_rate_limit_source: rateLimitSource,
           rate_limit_max_attempts: rateLimitMaxAttempts,
           rate_limit_window_minutes: rateLimitWindowMinutes,
@@ -120,49 +110,7 @@
   <AdminError {error} />
 
   <div class="rounded-xl border border-white/10 p-5 space-y-5">
-    <div class="max-w-xs">
-      <label class="block text-sm font-medium text-white/80" for="days-fallback">
-        Default days (no <code class="rounded bg-white/10 px-1 text-xs">lv-N</code> tag)
-      </label>
-      <p class="mt-1 text-xs text-white/40">
-        Used when a leaving-soon item has no <code class="rounded bg-white/10 px-1">lv-N</code> tag to
-        specify how many days remain.
-      </p>
-      <div class="mt-3 flex items-center gap-3">
-        <input
-          id="days-fallback"
-          type="number"
-          min="1"
-          max="365"
-          class="w-24 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-accent focus:outline-none"
-          bind:value={daysFallback}
-        />
-        <span class="text-sm text-white/40">days</span>
-      </div>
-    </div>
-
-    <div class="border-t border-white/10 pt-5 max-w-xs">
-      <label class="block text-sm font-medium text-white/80" for="max-sessions">
-        Max sessions per user
-      </label>
-      <p class="mt-1 text-xs text-white/40">
-        When a user logs in and exceeds this limit, their oldest session is signed out
-        automatically.
-      </p>
-      <div class="mt-3 flex items-center gap-3">
-        <input
-          id="max-sessions"
-          type="number"
-          min="1"
-          max="20"
-          class="w-24 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-accent focus:outline-none"
-          bind:value={maxSessionsPerUser}
-        />
-        <span class="text-sm text-white/40">sessions</span>
-      </div>
-    </div>
-
-    <div class="border-t border-white/10 pt-5">
+    <div>
       <label class="block text-sm font-medium text-white/80" for="rate-limit-source">
         Login rate-limit IP source
       </label>

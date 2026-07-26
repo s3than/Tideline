@@ -11,8 +11,6 @@ const envOverrides: Record<string, string | undefined> = {
   rate_limit_lockout_minutes: process.env.RATE_LIMIT_LOCKOUT_MINUTES,
 };
 const settings = {
-  leaving_soon_days_fallback: getSetting('leaving_soon_days_fallback', '30'),
-  max_sessions_per_user: getSetting('max_sessions_per_user', '5'),
   login_rate_limit_source: getSetting('login_rate_limit_source', 'client_address'),
   rate_limit_max_attempts:
     envOverrides.rate_limit_max_attempts ?? getSetting('rate_limit_max_attempts', '5'),
@@ -49,7 +47,7 @@ const envLocked = {
 
     <section>
       <h2 class="mb-1 text-lg font-semibold">Settings</h2>
-      <p class="mb-5 text-sm text-white/40">Global application settings.</p>
+      <p class="mb-5 text-sm text-white/40">Login rate-limiting and security settings.</p>
       <SettingsPanel settings={settings} envLocked={envLocked} client:load />
     </section>
 
