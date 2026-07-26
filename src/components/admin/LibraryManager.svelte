@@ -3,6 +3,7 @@
   import type { LibraryRow as Library } from '../../lib/db';
   import type { Library as JellyfinLibrary } from '../../lib/jellyfin';
   import { toErrorMessage } from '../../lib/response';
+  import AdminError from './AdminError.svelte';
 
   type FormData = {
     label: string;
@@ -205,11 +206,7 @@
 </script>
 
 <div class="space-y-4">
-  {#if error}
-    <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-      {error}
-    </div>
-  {/if}
+  <AdminError {error} />
 
   <!-- Library rows -->
   <div class="overflow-hidden rounded-xl border border-white/10">

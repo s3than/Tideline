@@ -2,6 +2,7 @@
   import { onMount, untrack } from 'svelte';
   import { formatDateTime } from '../../lib/format';
   import { toErrorMessage } from '../../lib/response';
+  import AdminError from './AdminError.svelte';
 
   type LibrarySyncInfo = {
     slug: string;
@@ -29,7 +30,7 @@
   let showSyncInfo: boolean = $state(false);
   let togglingSync: boolean = $state(false);
   let libraries: LibrarySyncInfo[] = $state(untrack(() => initial));
-  let syncing: boolean = $state(false);
+  let syncing: 'full' | 'partial' | null = $state(null);
   let error: string | null = $state(null);
   let syncTimes: Record<string, string | null> = $state(
     untrack(() => Object.fromEntries(initial.map((l) => [l.slug, l.syncedAt]))),
@@ -81,11 +82,12 @@
     return () => window.removeEventListener('tideline:libraries-changed', refreshLibraries);
   });
 
-  async function syncAll() {
-    syncing = true;
+  async function runSync(partial: boolean) {
+    syncing = partial ? 'partial' : 'full';
     error = null;
     try {
-      const resp = await fetch('/api/admin/sync', {
+      const url = partial ? '/api/admin/sync?partial=1' : '/api/admin/sync';
+      const resp = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -96,13 +98,14 @@
         syncErrors[r.slug] = r.error;
         if (!r.error) {
           syncTimes[r.slug] = now;
-          syncCounts[r.slug] = r.synced;
+          if (!partial) syncCounts[r.slug] = r.synced;
         }
       }
+      if (partial) await refreshLibraries();
     } catch (e: unknown) {
       error = toErrorMessage(e);
     } finally {
-      syncing = false;
+      syncing = null;
     }
   }
 </script>
@@ -149,7 +152,8 @@
       onclick={toggleSync}
       disabled={togglingSync}
       aria-pressed={syncEnabled}
-      class="relative ml-6 inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50
+      aria-label="{syncEnabled ? 'Disable' : 'Enable'} sync"
+      class="relative ml-6 inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50
         {syncEnabled ? 'bg-accent' : 'bg-white/20'}"
     >
       <span
@@ -201,47 +205,79 @@
     {/each}
   </div>
 
-  {#if error}
-    <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-      {error}
-    </div>
-  {/if}
+  <AdminError {error} />
 
-  <button
-    onclick={syncAll}
-    disabled={syncing || !syncEnabled}
-    class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/80 disabled:cursor-not-allowed disabled:opacity-50"
-  >
-    {#if syncing}
-      <svg
-        class="h-4 w-4 animate-spin"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-        ></circle>
-        <path
-          class="opacity-75"
+  <div class="flex items-center gap-2">
+    <button
+      onclick={() => runSync(false)}
+      disabled={syncing !== null || !syncEnabled}
+      class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/80 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {#if syncing === 'full'}
+        <svg
+          class="h-4 w-4 animate-spin"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+          ></circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"
+          ></path>
+        </svg>
+        Syncing…
+      {:else}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
           fill="currentColor"
-          d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"
-        ></path>
-      </svg>
-      Syncing…
-    {:else}
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        class="h-4 w-4"
-      >
-        <path
-          fill-rule="evenodd"
-          d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.389Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z"
-          clip-rule="evenodd"
-        />
-      </svg>
-      Sync All Libraries
-    {/if}
-  </button>
+          class="h-4 w-4"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.389Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        Full Sync
+      {/if}
+    </button>
+
+    <button
+      onclick={() => runSync(true)}
+      disabled={syncing !== null || !syncEnabled}
+      class="flex items-center gap-2 rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white/70 transition-colors hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {#if syncing === 'partial'}
+        <svg
+          class="h-4 w-4 animate-spin"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+          ></circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"
+          ></path>
+        </svg>
+        Syncing…
+      {:else}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          class="h-4 w-4"
+        >
+          <path d="M10 3a7 7 0 1 0 7 7h-2a5 5 0 1 1-5-5V3Z" />
+        </svg>
+        Partial Sync
+      {/if}
+    </button>
+  </div>
 </div>

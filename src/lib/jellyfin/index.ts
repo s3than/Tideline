@@ -1,4 +1,5 @@
 export type { JellyfinItem, JellyfinPerson, Library } from './types';
+export type { ItemStub } from './client';
 export {
   jellyfinBase,
   jellyfinApiKey,
@@ -9,6 +10,8 @@ export {
   searchItems,
   getLibraryItems,
   fetchAllLibraryItems,
+  fetchLibraryItemStubs,
+  fetchItemsByIds,
   getLeavingSoonItems,
   getItemDetail,
   addItemTags,

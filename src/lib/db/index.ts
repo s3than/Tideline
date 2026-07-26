@@ -12,7 +12,10 @@ export type {
   UpdateLibraryInput,
   LeavingSoonMediaRow,
   LibraryDisplayItem,
+  SyncResult,
 } from './types';
+export { addSyncLogEntry, pruneSyncLog, getSyncLog } from './syncLog';
+export type { SyncLogEntry } from './syncLog';
 
 export { getLibraries, createLibrary, updateLibrary, deleteLibrary } from './libraries';
 export { getPickHistory, upsertPick, getRecentPickIds } from './picks';
@@ -68,4 +71,7 @@ export {
   getMediaById,
   clearMediaByLibrary,
   getRandomPickFromMedia,
+  getMediaStubsForLibrary,
+  deleteMediaByIds,
+  deleteSeasonsByLibrary,
 } from './media';

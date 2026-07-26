@@ -131,6 +131,14 @@ export function openDb(): Database.Database {
     );
     CREATE INDEX IF NOT EXISTS idx_media_library ON media(library_slug);
     CREATE INDEX IF NOT EXISTS idx_media_leaving  ON media(library_slug, leaving_soon);
+
+    CREATE TABLE IF NOT EXISTS sync_log (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      type        TEXT NOT NULL CHECK(type IN ('full','partial')),
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      results     TEXT NOT NULL
+    );
   `);
 
   // Migration: add columns to sessions for existing databases
@@ -147,6 +155,12 @@ export function openDb(): Database.Database {
   if (!sessionCols.includes('last_active_at')) {
     _db.exec(`ALTER TABLE sessions ADD COLUMN last_active_at TEXT`);
     _db.exec(`UPDATE sessions SET last_active_at = datetime('now')`);
+  }
+
+  // Migration: add jellyfin_last_saved to media for partial sync
+  const mediaCols = (_db.pragma('table_info(media)') as { name: string }[]).map((c) => c.name);
+  if (!mediaCols.includes('jellyfin_last_saved')) {
+    _db.exec(`ALTER TABLE media ADD COLUMN jellyfin_last_saved TEXT`);
   }
 
   // Migration: add FK cascade to picks table for existing databases

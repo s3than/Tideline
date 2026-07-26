@@ -31,6 +31,7 @@ function rowToMedia(row: {
   series_id: string | null;
   index_number: number | null;
   series_name: string | null;
+  jellyfin_last_saved: string | null;
 }): MediaRow {
   return {
     jellyfinId: row.jellyfin_id,
@@ -59,6 +60,7 @@ function rowToMedia(row: {
     seriesId: row.series_id,
     indexNumber: row.index_number,
     seriesName: row.series_name,
+    jellyfinLastSaved: row.jellyfin_last_saved,
   };
 }
 
@@ -80,8 +82,9 @@ export function upsertMediaBatch(rows: MediaInsert[]): void {
       (jellyfin_id, library_slug, name, sort_name, year, premiere_date, date_added,
        overview, tagline, poster_tag, backdrop_tag, community_rating, critic_rating,
        official_rating, genres, provider_ids, runtime_ticks, series_status, episode_count,
-       item_type, leaving_soon, leaving_days, series_id, index_number, series_name, synced_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       item_type, leaving_soon, leaving_days, series_id, index_number, series_name,
+       jellyfin_last_saved, synced_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `);
   db.transaction(() => {
     for (const r of rows) {
@@ -111,9 +114,38 @@ export function upsertMediaBatch(rows: MediaInsert[]): void {
         r.seriesId ?? null,
         r.indexNumber ?? null,
         r.seriesName ?? null,
+        r.jellyfinLastSaved ?? null,
       );
     }
   })();
+}
+
+export function getMediaStubsForLibrary(slug: string): Map<string, string | null> {
+  const rows = openDb()
+    .prepare(
+      `SELECT jellyfin_id, jellyfin_last_saved FROM media
+       WHERE library_slug = ? AND item_type != 'Season'`,
+    )
+    .all(slug) as { jellyfin_id: string; jellyfin_last_saved: string | null }[];
+  return new Map(rows.map((r) => [r.jellyfin_id, r.jellyfin_last_saved]));
+}
+
+export function deleteMediaByIds(ids: string[]): void {
+  if (ids.length === 0) return;
+  const db = openDb();
+  const CHUNK = 900;
+  db.transaction(() => {
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      db.prepare(`DELETE FROM media WHERE jellyfin_id IN (${chunk.map(() => '?').join(',')})`).run(
+        ...chunk,
+      );
+    }
+  })();
+}
+
+export function deleteSeasonsByLibrary(slug: string): void {
+  openDb().prepare(`DELETE FROM media WHERE library_slug = ? AND item_type = 'Season'`).run(slug);
 }
 
 export function getMediaPage(

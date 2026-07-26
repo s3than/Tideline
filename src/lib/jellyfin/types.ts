@@ -43,6 +43,7 @@ export interface JellyfinItem {
   ParentLogoItemId?: string;
   ParentLogoImageTag?: string;
   DateCreated?: string;
+  DateLastSaved?: string;
   SortName?: string;
   resolvedDays?: number; // set by enrichLeavingSoon, overrides tag-derived days
 }
