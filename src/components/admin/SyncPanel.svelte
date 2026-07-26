@@ -2,6 +2,7 @@
   import { onMount, untrack } from 'svelte';
   import { formatDateTime } from '../../lib/format';
   import { toErrorMessage } from '../../lib/response';
+  import AdminError from './AdminError.svelte';
 
   type LibrarySyncInfo = {
     slug: string;
@@ -151,7 +152,8 @@
       onclick={toggleSync}
       disabled={togglingSync}
       aria-pressed={syncEnabled}
-      class="relative ml-6 inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50
+      aria-label="{syncEnabled ? 'Disable' : 'Enable'} sync"
+      class="relative ml-6 inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50
         {syncEnabled ? 'bg-accent' : 'bg-white/20'}"
     >
       <span
@@ -203,11 +205,7 @@
     {/each}
   </div>
 
-  {#if error}
-    <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-      {error}
-    </div>
-  {/if}
+  <AdminError {error} />
 
   <div class="flex items-center gap-2">
     <button

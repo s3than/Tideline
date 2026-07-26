@@ -2,21 +2,8 @@
   import { untrack } from 'svelte';
   import { formatDateTime } from '../../lib/format';
   import { toErrorMessage } from '../../lib/response';
-
-  type SyncResult = {
-    slug: string;
-    label: string;
-    synced: number;
-    error?: string;
-  };
-
-  type SyncLogEntry = {
-    id: number;
-    runAt: string;
-    type: 'full' | 'partial';
-    durationMs: number;
-    results: SyncResult[];
-  };
+  import type { SyncLogEntry } from '../../lib/db';
+  import AdminError from './AdminError.svelte';
 
   type Props = {
     initialEntries: SyncLogEntry[];
@@ -81,11 +68,7 @@
 </script>
 
 <div class="space-y-4">
-  {#if error}
-    <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-      {error}
-    </div>
-  {/if}
+  <AdminError {error} />
 
   <!-- Retention setting -->
   <div class="flex items-center gap-3">

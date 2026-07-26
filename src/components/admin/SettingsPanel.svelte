@@ -1,6 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { toErrorMessage } from '../../lib/response';
+  import AdminError from './AdminError.svelte';
+  import AdminSaveButton from './AdminSaveButton.svelte';
 
   type RateLimitSource = 'client_address' | 'x_forwarded_for' | 'disabled';
 
@@ -115,11 +117,7 @@
 </script>
 
 <div class="space-y-6">
-  {#if error}
-    <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-      {error}
-    </div>
-  {/if}
+  <AdminError {error} />
 
   <div class="rounded-xl border border-white/10 p-5 space-y-5">
     <div class="max-w-xs">
@@ -266,16 +264,7 @@
     </div>
 
     <div class="flex items-center gap-3 border-t border-white/10 pt-4">
-      <button
-        onclick={save}
-        disabled={saving}
-        class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-      >
-        {saving ? 'Saving…' : 'Save Settings'}
-      </button>
-      {#if saved}
-        <span class="text-sm text-green-400">Saved</span>
-      {/if}
+      <AdminSaveButton {saving} {saved} onsave={save} />
     </div>
   </div>
 </div>

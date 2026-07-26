@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { formatDateTime } from '../../lib/format';
   import { toErrorMessage } from '../../lib/response';
+  import AdminError from './AdminError.svelte';
 
   type UserWithSessions = {
     jellyfinId: string;
@@ -40,11 +41,7 @@
 </script>
 
 <div class="space-y-4">
-  {#if error}
-    <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-      {error}
-    </div>
-  {/if}
+  <AdminError {error} />
 
   <div class="overflow-hidden rounded-xl border border-white/10">
     {#if users.length === 0}
