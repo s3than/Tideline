@@ -43,8 +43,8 @@
       Default days (no <code class="rounded bg-white/10 px-1 text-xs">lv-N</code> tag)
     </label>
     <p class="mt-1 text-xs text-white/40">
-      Used when a leaving-soon item has no <code class="rounded bg-white/10 px-1">lv-N</code> tag
-      to specify how many days remain.
+      Used when a leaving-soon item has no <code class="rounded bg-white/10 px-1">lv-N</code> tag to specify
+      how many days remain.
     </p>
     <div class="mt-3 flex items-center gap-3">
       <input

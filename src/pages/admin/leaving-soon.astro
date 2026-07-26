@@ -182,7 +182,9 @@ for (const item of displayItems.filter((i) => leavingSoonEnabledSlugs.has(i.libr
     <section>
       <h2 class="mb-1 text-lg font-semibold">Default days</h2>
       <p class="mb-5 text-sm text-white/40">
-        Fallback used when a leaving-soon item has no <code class="rounded bg-white/10 px-1 text-xs">lv-N</code> tag.
+        Fallback used when a leaving-soon item has no <code class="rounded bg-white/10 px-1 text-xs"
+          >lv-N</code
+        > tag.
       </p>
       <LeavingSoonSettingsPanel daysFallback={defaultDays} client:load />
     </section>

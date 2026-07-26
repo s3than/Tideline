@@ -46,15 +46,25 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
 
   if (newExternalUrl !== null) {
     if (!newExternalUrl) return json({ error: 'Jellyfin URL is required' }, 400);
-    if (!validHttpUrl(newExternalUrl)) return json({ error: 'Jellyfin URL must use http or https' }, 400);
+    if (!validHttpUrl(newExternalUrl))
+      return json({ error: 'Jellyfin URL must use http or https' }, 400);
   }
   if (newInternalUrl !== null && newInternalUrl !== '') {
-    if (!validHttpUrl(newInternalUrl)) return json({ error: 'Internal URL must use http or https' }, 400);
+    if (!validHttpUrl(newInternalUrl))
+      return json({ error: 'Internal URL must use http or https' }, 400);
   }
 
   // Effective values for verification: env > submitted > stored
-  const effectiveExternalUrl = (ENV_URL ?? newExternalUrl ?? getSetting('jellyfin_url', '')).replace(/\/$/, '');
-  const effectiveInternalUrl = (ENV_INTERNAL_URL ?? newInternalUrl ?? getSetting('jellyfin_internal_url', '')).replace(/\/$/, '');
+  const effectiveExternalUrl = (
+    ENV_URL ??
+    newExternalUrl ??
+    getSetting('jellyfin_url', '')
+  ).replace(/\/$/, '');
+  const effectiveInternalUrl = (
+    ENV_INTERNAL_URL ??
+    newInternalUrl ??
+    getSetting('jellyfin_internal_url', '')
+  ).replace(/\/$/, '');
   const effectiveApiKey = ENV_API_KEY ?? newApiKey ?? getSetting('jellyfin_api_key', '');
 
   if (!effectiveExternalUrl) return json({ error: 'Jellyfin URL is required' }, 400);
@@ -65,7 +75,8 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
   if (!verify.ok) return json({ error: verify.error }, 400);
 
   if (newExternalUrl !== null) setSetting('jellyfin_url', newExternalUrl.replace(/\/$/, ''));
-  if (newInternalUrl !== null) setSetting('jellyfin_internal_url', newInternalUrl.replace(/\/$/, ''));
+  if (newInternalUrl !== null)
+    setSetting('jellyfin_internal_url', newInternalUrl.replace(/\/$/, ''));
   if (newApiKey) setSetting('jellyfin_api_key', newApiKey);
 
   return json({ ok: true, serverName: verify.serverName, version: verify.version });

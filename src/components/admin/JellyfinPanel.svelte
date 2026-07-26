@@ -31,7 +31,9 @@
   let error: string | null = $state(null);
   let connectedTo: string | null = $state(null);
 
-  const anyEditable = $derived(!envLocked.externalUrl || !envLocked.internalUrl || !envLocked.apiKey);
+  const anyEditable = $derived(
+    !envLocked.externalUrl || !envLocked.internalUrl || !envLocked.apiKey,
+  );
 
   async function save() {
     saving = true;
