@@ -15,12 +15,18 @@ const SYNC_FIELDS =
   'CommunityRating,CriticRating,OfficialRating,Taglines,PremiereDate,Genres,ProviderIds';
 
 function resolveExternalUrl(): string {
-  return (process.env.JELLYFIN_URL || getSetting('jellyfin_url', '')).replace(/\/$/, '');
+  return (
+    import.meta.env.JELLYFIN_URL ||
+    process.env.JELLYFIN_URL ||
+    getSetting('jellyfin_url', '')
+  ).replace(/\/$/, '');
 }
 
 function resolveInternalUrl(): string {
   const internal = (
-    process.env.JELLYFIN_INTERNAL_URL || getSetting('jellyfin_internal_url', '')
+    import.meta.env.JELLYFIN_INTERNAL_URL ||
+    process.env.JELLYFIN_INTERNAL_URL ||
+    getSetting('jellyfin_internal_url', '')
   ).replace(/\/$/, '');
   return internal || resolveExternalUrl();
 }
@@ -38,7 +44,10 @@ export function jellyfinExternalBase(): string {
 }
 
 export function jellyfinApiKey(): string {
-  const key = process.env.JELLYFIN_API_KEY || getSetting('jellyfin_api_key', '');
+  const key =
+    import.meta.env.JELLYFIN_API_KEY ||
+    process.env.JELLYFIN_API_KEY ||
+    getSetting('jellyfin_api_key', '');
   if (!key) throw new Error('Jellyfin API key not configured');
   return key;
 }
@@ -46,7 +55,9 @@ export function jellyfinApiKey(): string {
 export function isJellyfinConfigured(): boolean {
   return !!(
     resolveExternalUrl() &&
-    (process.env.JELLYFIN_API_KEY || getSetting('jellyfin_api_key', ''))
+    (import.meta.env.JELLYFIN_API_KEY ||
+      process.env.JELLYFIN_API_KEY ||
+      getSetting('jellyfin_api_key', ''))
   );
 }
 
@@ -188,7 +199,7 @@ export async function searchItems(
   userToken?: string,
 ): Promise<JellyfinItem[]> {
   const data = await fetchJson<ItemsResponse>(
-    `/Items?ParentId=${libraryId}&Recursive=true` +
+    `/Items?ParentId=${encodeURIComponent(libraryId)}&Recursive=true` +
       `&SearchTerm=${encodeURIComponent(query)}` +
       `&IncludeItemTypes=${itemTypes}` +
       `&Fields=ImageTags,BackdropImageTags,ProductionYear,Overview,CommunityRating` +
@@ -228,7 +239,7 @@ export async function getLibraryItems(
   userToken?: string,
 ): Promise<{ items: JellyfinItem[]; total: number }> {
   const data = await fetchJson<ItemsResponse>(
-    `/Items?ParentId=${jellyfinLibId}&Recursive=true` +
+    `/Items?ParentId=${encodeURIComponent(jellyfinLibId)}&Recursive=true` +
       `&IncludeItemTypes=${jellyfinItemType(itemType)}` +
       `&Fields=ImageTags,ProductionYear` +
       `&SortBy=SortName&SortOrder=Ascending` +
@@ -255,7 +266,7 @@ export async function fetchAllLibraryItems(
 
   for (;;) {
     const data = await fetchJson<ItemsResponse>(
-      `/Items?ParentId=${jellyfinId}&Recursive=true` +
+      `/Items?ParentId=${encodeURIComponent(jellyfinId)}&Recursive=true` +
         `&IncludeItemTypes=${jellyfinItemType(itemType)}` +
         `&Fields=${SYNC_FIELDS}` +
         `&SortBy=SortName&SortOrder=Ascending` +
@@ -280,7 +291,7 @@ export async function getSeasonEpisodes(
 ): Promise<JellyfinItem[]> {
   try {
     const data = await fetchJson<ItemsResponse>(
-      `/Items?ParentId=${seasonId}&IncludeItemTypes=Episode` +
+      `/Items?ParentId=${encodeURIComponent(seasonId)}&IncludeItemTypes=Episode` +
         `&Fields=ImageTags,IndexNumber,Overview,RunTimeTicks` +
         `&SortBy=IndexNumber&SortOrder=Ascending`,
       userToken,
@@ -312,7 +323,7 @@ export async function getCollectionItems(
 ): Promise<JellyfinItem[]> {
   try {
     const data = await fetchJson<ItemsResponse>(
-      `/Items?ParentId=${collectionId}&Recursive=true` +
+      `/Items?ParentId=${encodeURIComponent(collectionId)}&Recursive=true` +
         `&IncludeItemTypes=Movie,Series` +
         `&Fields=ImageTags,ProductionYear,CommunityRating,Overview` +
         `&SortBy=SortName&SortOrder=Ascending`,
@@ -402,7 +413,7 @@ export async function fetchLibraryItemStubs(
 
   for (;;) {
     const data = await fetchJson<{ Items: ItemStub[]; TotalRecordCount: number }>(
-      `/Items?ParentId=${jellyfinId}&Recursive=true` +
+      `/Items?ParentId=${encodeURIComponent(jellyfinId)}&Recursive=true` +
         `&IncludeItemTypes=${jellyfinItemType(itemType)}` +
         `&Fields=DateLastSaved` +
         `&SortBy=Id&SortOrder=Ascending` +
@@ -429,7 +440,7 @@ export async function fetchItemsByIds(ids: string[]): Promise<JellyfinItem[]> {
   for (let i = 0; i < ids.length; i += CHUNK) {
     const chunk = ids.slice(i, i + CHUNK);
     const data = await fetchJson<ItemsResponse>(
-      `/Items?Ids=${chunk.join(',')}&Fields=${SYNC_FIELDS}`,
+      `/Items?Ids=${chunk.map(encodeURIComponent).join(',')}&Fields=${SYNC_FIELDS}`,
     );
     all.push(...data.Items);
   }

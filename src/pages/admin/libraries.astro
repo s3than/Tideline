@@ -3,10 +3,33 @@ import Layout from '../../layouts/Layout.astro';
 import AdminNav from '../../components/admin/AdminNav.astro';
 import LibraryManager from '../../components/admin/LibraryManager.svelte';
 import SyncPanel from '../../components/admin/SyncPanel.svelte';
+import JellyfinPanel from '../../components/admin/JellyfinPanel.svelte';
 import { getLibraries, getLibrarySyncedAt, getMediaCount, getSetting } from '../../lib/db';
 
 const libraries = getLibraries();
 const syncEnabled = getSetting('sync_enabled', '1') === '1';
+const jellyfinSettings = {
+  externalUrl: (
+    import.meta.env.JELLYFIN_URL ||
+    process.env.JELLYFIN_URL ||
+    getSetting('jellyfin_url', '')
+  ).replace(/\/$/, ''),
+  internalUrl: (
+    import.meta.env.JELLYFIN_INTERNAL_URL ||
+    process.env.JELLYFIN_INTERNAL_URL ||
+    getSetting('jellyfin_internal_url', '')
+  ).replace(/\/$/, ''),
+  hasApiKey: !!(
+    import.meta.env.JELLYFIN_API_KEY ||
+    process.env.JELLYFIN_API_KEY ||
+    getSetting('jellyfin_api_key', '')
+  ),
+  envLocked: {
+    externalUrl: !!(import.meta.env.JELLYFIN_URL || process.env.JELLYFIN_URL),
+    internalUrl: !!(import.meta.env.JELLYFIN_INTERNAL_URL || process.env.JELLYFIN_INTERNAL_URL),
+    apiKey: !!(import.meta.env.JELLYFIN_API_KEY || process.env.JELLYFIN_API_KEY),
+  },
+};
 const syncLibraries = libraries.map((l) => ({
   slug: l.slug,
   label: l.label,
@@ -23,6 +46,21 @@ const syncLibraries = libraries.map((l) => ({
     </div>
 
     <AdminNav />
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Jellyfin connection</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Review and update the Jellyfin server URL and API key. Changes are verified against the
+        server before saving.
+      </p>
+      <JellyfinPanel
+        externalUrl={jellyfinSettings.externalUrl}
+        internalUrl={jellyfinSettings.internalUrl}
+        hasApiKey={jellyfinSettings.hasApiKey}
+        envLocked={jellyfinSettings.envLocked}
+        client:load
+      />
+    </section>
 
     <section>
       <h2 class="mb-1 text-lg font-semibold">Libraries</h2>
