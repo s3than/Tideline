@@ -4,10 +4,14 @@
   import { toErrorMessage } from '../../lib/response';
 
   type Props = {
-    scheduleEnabled: boolean;
-    intervalHours: number;
-    lastSync: string | null;
-    nextSync: string | null;
+    fullSyncEnabled: boolean;
+    fullSyncIntervalHours: number;
+    lastFullSync: string | null;
+    nextFullSync: string | null;
+    partialSyncEnabled: boolean;
+    partialSyncIntervalHours: number;
+    lastPartialSync: string | null;
+    nextPartialSync: string | null;
   };
 
   const INTERVAL_OPTIONS = [
@@ -21,16 +25,26 @@
   ];
 
   let {
-    scheduleEnabled: initialEnabled,
-    intervalHours: initialHours,
-    lastSync: initialLast,
-    nextSync: initialNext,
+    fullSyncEnabled: initialFullEnabled,
+    fullSyncIntervalHours: initialFullHours,
+    lastFullSync: initialLastFull,
+    nextFullSync: initialNextFull,
+    partialSyncEnabled: initialPartialEnabled,
+    partialSyncIntervalHours: initialPartialHours,
+    lastPartialSync: initialLastPartial,
+    nextPartialSync: initialNextPartial,
   }: Props = $props();
 
-  let scheduleEnabled: boolean = $state(untrack(() => initialEnabled));
-  let intervalHours: number = $state(untrack(() => initialHours));
-  let lastSync: string | null = $state(untrack(() => initialLast));
-  let nextSync: string | null = $state(untrack(() => initialNext));
+  let fullSyncEnabled: boolean = $state(untrack(() => initialFullEnabled));
+  let fullSyncIntervalHours: number = $state(untrack(() => initialFullHours));
+  let lastFullSync: string | null = $state(untrack(() => initialLastFull));
+  let nextFullSync: string | null = $state(untrack(() => initialNextFull));
+
+  let partialSyncEnabled: boolean = $state(untrack(() => initialPartialEnabled));
+  let partialSyncIntervalHours: number = $state(untrack(() => initialPartialHours));
+  let lastPartialSync: string | null = $state(untrack(() => initialLastPartial));
+  let nextPartialSync: string | null = $state(untrack(() => initialNextPartial));
+
   let saving: boolean = $state(false);
   let saved: boolean = $state(false);
   let error: string | null = $state(null);
@@ -44,8 +58,10 @@
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sync_schedule_enabled: scheduleEnabled ? '1' : '0',
-          sync_interval_hours: intervalHours,
+          sync_schedule_enabled: fullSyncEnabled ? '1' : '0',
+          sync_interval_hours: fullSyncIntervalHours,
+          partial_sync_enabled: partialSyncEnabled ? '1' : '0',
+          partial_sync_interval_hours: partialSyncIntervalHours,
         }),
       });
       const data = await resp.json();
@@ -54,8 +70,10 @@
       const statusResp = await fetch('/api/admin/settings');
       if (statusResp.ok) {
         const { scheduleStatus } = await statusResp.json();
-        lastSync = scheduleStatus.lastSync;
-        nextSync = scheduleStatus.nextSync;
+        lastFullSync = scheduleStatus.lastSync;
+        nextFullSync = scheduleStatus.nextSync;
+        lastPartialSync = scheduleStatus.lastPartialSync;
+        nextPartialSync = scheduleStatus.nextPartialSync;
       }
 
       saved = true;
@@ -77,27 +95,26 @@
     </div>
   {/if}
 
-  <!-- Task list -->
-  <div class="overflow-hidden rounded-xl border border-white/10">
-    <!-- Sync Media task -->
+  <div class="overflow-hidden rounded-xl border border-white/10 divide-y divide-white/10">
+    <!-- Full Sync -->
     <div class="bg-white/5 px-5 py-4">
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
-          <p class="text-sm font-medium">Sync Media</p>
+          <p class="text-sm font-medium">Full Sync</p>
           <p class="mt-0.5 text-xs text-white/40">
-            Syncs all non-proxy libraries from Jellyfin into the local database.
+            Wipes and rebuilds all library data from Jellyfin.
           </p>
 
-          {#if scheduleEnabled}
+          {#if fullSyncEnabled}
             <div class="mt-3 flex flex-wrap gap-1.5">
               {#each INTERVAL_OPTIONS as opt (opt.value)}
                 <button
                   type="button"
                   onclick={() => {
-                    intervalHours = opt.value;
+                    fullSyncIntervalHours = opt.value;
                   }}
                   class="rounded border px-2.5 py-1 text-xs transition-colors
-                    {intervalHours === opt.value
+                    {fullSyncIntervalHours === opt.value
                     ? 'border-accent bg-accent/10 text-white'
                     : 'border-white/10 text-white/40 hover:border-white/20 hover:text-white'}"
                   >{opt.label}</button
@@ -106,30 +123,91 @@
             </div>
           {/if}
 
-          {#if scheduleEnabled && (lastSync || nextSync)}
+          {#if fullSyncEnabled && (lastFullSync || nextFullSync)}
             <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-white/40">
-              {#if lastSync}
-                <span>Last run: <span class="text-white/60">{formatDateTime(lastSync)}</span></span>
+              {#if lastFullSync}
+                <span
+                  >Last run: <span class="text-white/60">{formatDateTime(lastFullSync)}</span></span
+                >
               {/if}
-              {#if nextSync}
-                <span>Next: <span class="text-white/60">{formatDateTime(nextSync)}</span></span>
+              {#if nextFullSync}
+                <span>Next: <span class="text-white/60">{formatDateTime(nextFullSync)}</span></span>
               {/if}
             </div>
           {/if}
         </div>
 
-        <!-- Toggle -->
         <button
           onclick={() => {
-            scheduleEnabled = !scheduleEnabled;
+            fullSyncEnabled = !fullSyncEnabled;
           }}
-          aria-pressed={scheduleEnabled}
+          aria-pressed={fullSyncEnabled}
           class="relative mt-0.5 inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
-            {scheduleEnabled ? 'bg-accent' : 'bg-white/20'}"
+            {fullSyncEnabled ? 'bg-accent' : 'bg-white/20'}"
         >
           <span
             class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-              {scheduleEnabled ? 'translate-x-5' : 'translate-x-0'}"
+              {fullSyncEnabled ? 'translate-x-5' : 'translate-x-0'}"
+          ></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Partial Sync -->
+    <div class="bg-white/5 px-5 py-4">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-sm font-medium">Partial Sync</p>
+          <p class="mt-0.5 text-xs text-white/40">
+            Fetches only new and changed items, removes deleted ones.
+          </p>
+
+          {#if partialSyncEnabled}
+            <div class="mt-3 flex flex-wrap gap-1.5">
+              {#each INTERVAL_OPTIONS as opt (opt.value)}
+                <button
+                  type="button"
+                  onclick={() => {
+                    partialSyncIntervalHours = opt.value;
+                  }}
+                  class="rounded border px-2.5 py-1 text-xs transition-colors
+                    {partialSyncIntervalHours === opt.value
+                    ? 'border-accent bg-accent/10 text-white'
+                    : 'border-white/10 text-white/40 hover:border-white/20 hover:text-white'}"
+                  >{opt.label}</button
+                >
+              {/each}
+            </div>
+          {/if}
+
+          {#if partialSyncEnabled && (lastPartialSync || nextPartialSync)}
+            <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-white/40">
+              {#if lastPartialSync}
+                <span
+                  >Last run: <span class="text-white/60">{formatDateTime(lastPartialSync)}</span
+                  ></span
+                >
+              {/if}
+              {#if nextPartialSync}
+                <span
+                  >Next: <span class="text-white/60">{formatDateTime(nextPartialSync)}</span></span
+                >
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        <button
+          onclick={() => {
+            partialSyncEnabled = !partialSyncEnabled;
+          }}
+          aria-pressed={partialSyncEnabled}
+          class="relative mt-0.5 inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
+            {partialSyncEnabled ? 'bg-accent' : 'bg-white/20'}"
+        >
+          <span
+            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+              {partialSyncEnabled ? 'translate-x-5' : 'translate-x-0'}"
           ></span>
         </button>
       </div>

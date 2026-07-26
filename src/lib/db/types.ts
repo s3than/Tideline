@@ -70,6 +70,7 @@ export interface MediaRow {
   seriesId: string | null;
   indexNumber: number | null;
   seriesName: string | null;
+  jellyfinLastSaved: string | null;
 }
 
 export interface MediaInsert {
@@ -98,6 +99,7 @@ export interface MediaInsert {
   seriesId?: string | null;
   indexNumber?: number | null;
   seriesName?: string | null;
+  jellyfinLastSaved?: string | null;
 }
 
 export interface CreateLibraryInput {
@@ -124,6 +126,13 @@ export interface UpdateLibraryInput {
 
 export interface LeavingSoonMediaRow extends MediaRow {
   resolvedDays: number;
+}
+
+export interface SyncResult {
+  slug: string;
+  label: string;
+  synced: number;
+  error?: string;
 }
 
 export interface LibraryDisplayItem {

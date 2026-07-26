@@ -11,7 +11,7 @@ export const ITEM_FIELDS =
   'Overview,ImageTags,BackdropImageTags,Tags,SeriesId,SeriesName,SeasonId,SeasonName,CommunityRating,ProductionYear,RunTimeTicks,IndexNumber';
 
 const SYNC_FIELDS =
-  'Overview,ImageTags,BackdropImageTags,Tags,ProductionYear,DateCreated,SortName,' +
+  'Overview,ImageTags,BackdropImageTags,Tags,ProductionYear,DateCreated,DateLastSaved,SortName,' +
   'CommunityRating,CriticRating,OfficialRating,Taglines,PremiereDate,Genres,ProviderIds';
 
 function resolveExternalUrl(): string {
@@ -384,6 +384,57 @@ export async function getItemDetail(
   } catch {
     return null;
   }
+}
+
+export interface ItemStub {
+  Id: string;
+  DateLastSaved?: string;
+}
+
+export async function fetchLibraryItemStubs(
+  jellyfinId: string,
+  itemType: 'Movie' | 'Series' | 'Collection',
+): Promise<ItemStub[]> {
+  const BATCH = 500;
+  const all: ItemStub[] = [];
+  const seen = new Set<string>();
+  let start = 0;
+
+  for (;;) {
+    const data = await fetchJson<{ Items: ItemStub[]; TotalRecordCount: number }>(
+      `/Items?ParentId=${jellyfinId}&Recursive=true` +
+        `&IncludeItemTypes=${jellyfinItemType(itemType)}` +
+        `&Fields=DateLastSaved` +
+        `&SortBy=Id&SortOrder=Ascending` +
+        `&StartIndex=${start}&Limit=${BATCH}`,
+    );
+    for (const item of data.Items) {
+      if (!seen.has(item.Id)) {
+        seen.add(item.Id);
+        all.push(item);
+      }
+    }
+    if (data.Items.length === 0 || all.length >= data.TotalRecordCount) break;
+    start += BATCH;
+  }
+
+  return all;
+}
+
+export async function fetchItemsByIds(ids: string[]): Promise<JellyfinItem[]> {
+  if (ids.length === 0) return [];
+  const CHUNK = 100;
+  const all: JellyfinItem[] = [];
+
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const data = await fetchJson<ItemsResponse>(
+      `/Items?Ids=${chunk.join(',')}&Fields=${SYNC_FIELDS}`,
+    );
+    all.push(...data.Items);
+  }
+
+  return all;
 }
 
 export async function getLeavingSoonItems(

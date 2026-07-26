@@ -2,12 +2,21 @@
 import Layout from '../../layouts/Layout.astro';
 import AdminNav from '../../components/admin/AdminNav.astro';
 import SchedulePanel from '../../components/admin/SchedulePanel.svelte';
-import { getSetting } from '../../lib/db';
+import SyncLogPanel from '../../components/admin/SyncLogPanel.svelte';
+import { getSetting, getSyncLog } from '../../lib/db';
 
-const scheduleEnabled = getSetting('sync_schedule_enabled', '0') === '1';
-const intervalHours = parseInt(getSetting('sync_interval_hours', '6'), 10);
-const lastSync = getSetting('last_scheduled_sync', '') || null;
-const nextSync = getSetting('next_scheduled_sync', '') || null;
+const fullSyncEnabled = getSetting('sync_schedule_enabled', '0') === '1';
+const fullSyncIntervalHours = parseInt(getSetting('sync_interval_hours', '6'), 10);
+const lastFullSync = getSetting('last_scheduled_sync', '') || null;
+const nextFullSync = getSetting('next_scheduled_sync', '') || null;
+
+const partialSyncEnabled = getSetting('partial_sync_enabled', '0') === '1';
+const partialSyncIntervalHours = parseInt(getSetting('partial_sync_interval_hours', '6'), 10);
+const lastPartialSync = getSetting('last_partial_sync', '') || null;
+const nextPartialSync = getSetting('next_partial_sync', '') || null;
+
+const maxEntries = parseInt(getSetting('sync_log_max_entries', '20'), 10);
+const logEntries = getSyncLog(maxEntries);
 ---
 
 <Layout title="Admin — Schedule — Tideline">
@@ -24,12 +33,24 @@ const nextSync = getSetting('next_scheduled_sync', '') || null;
         Configure recurring background tasks. Tasks only run when their toggle is enabled.
       </p>
       <SchedulePanel
-        scheduleEnabled={scheduleEnabled}
-        intervalHours={intervalHours}
-        lastSync={lastSync}
-        nextSync={nextSync}
+        fullSyncEnabled={fullSyncEnabled}
+        fullSyncIntervalHours={fullSyncIntervalHours}
+        lastFullSync={lastFullSync}
+        nextFullSync={nextFullSync}
+        partialSyncEnabled={partialSyncEnabled}
+        partialSyncIntervalHours={partialSyncIntervalHours}
+        lastPartialSync={lastPartialSync}
+        nextPartialSync={nextPartialSync}
         client:load
       />
+    </section>
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Scheduled Tasks Log</h2>
+      <p class="mb-5 text-sm text-white/40">
+        History of scheduled sync runs. Manual syncs from the Libraries page are not recorded here.
+      </p>
+      <SyncLogPanel initialEntries={logEntries} maxEntries={maxEntries} client:load />
     </section>
   </div>
 </Layout>

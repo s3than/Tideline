@@ -9,6 +9,9 @@ const SETTINGS_KEYS = [
   'sync_enabled',
   'sync_schedule_enabled',
   'sync_interval_hours',
+  'partial_sync_enabled',
+  'partial_sync_interval_hours',
+  'sync_log_max_entries',
   'leaving_soon_days_fallback',
   'login_rate_limit_source',
   'rate_limit_max_attempts',
@@ -30,6 +33,9 @@ const DEFAULTS: Record<SettingKey, string> = {
   sync_enabled: '1',
   sync_schedule_enabled: '0',
   sync_interval_hours: '6',
+  partial_sync_enabled: '0',
+  partial_sync_interval_hours: '6',
+  sync_log_max_entries: '20',
   leaving_soon_days_fallback: '30',
   login_rate_limit_source: 'client_address',
   rate_limit_max_attempts: '5',
@@ -75,6 +81,8 @@ export const GET: APIRoute = ({ locals }) => {
   const scheduleStatus = {
     lastSync: getSetting('last_scheduled_sync', '') || null,
     nextSync: getSetting('next_scheduled_sync', '') || null,
+    lastPartialSync: getSetting('last_partial_sync', '') || null,
+    nextPartialSync: getSetting('next_partial_sync', '') || null,
   };
   return json({ settings, envLocked, scheduleStatus });
 };
@@ -105,7 +113,7 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
         if (val !== '0' && val !== '1')
           return json({ error: 'sync_schedule_enabled must be "0" or "1"' }, 400);
         setSetting(key, val);
-        if (val === '1') rescheduleNext();
+        if (val === '1') rescheduleNext('full');
       }
       if (key === 'sync_interval_hours') {
         const n = Number(val);
@@ -113,7 +121,28 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
           return json({ error: 'sync_interval_hours must be an integer 1–168' }, 400);
         }
         setSetting(key, String(n));
-        rescheduleNext();
+        rescheduleNext('full');
+      }
+      if (key === 'partial_sync_enabled') {
+        if (val !== '0' && val !== '1')
+          return json({ error: 'partial_sync_enabled must be "0" or "1"' }, 400);
+        setSetting(key, val);
+        if (val === '1') rescheduleNext('partial');
+      }
+      if (key === 'partial_sync_interval_hours') {
+        const n = Number(val);
+        if (!Number.isInteger(n) || n < 1 || n > 168) {
+          return json({ error: 'partial_sync_interval_hours must be an integer 1–168' }, 400);
+        }
+        setSetting(key, String(n));
+        rescheduleNext('partial');
+      }
+      if (key === 'sync_log_max_entries') {
+        const n = Number(val);
+        if (!Number.isInteger(n) || n < 1 || n > 500) {
+          return json({ error: 'sync_log_max_entries must be an integer 1–500' }, 400);
+        }
+        setSetting(key, String(n));
       }
       if (key === 'leaving_soon_days_fallback') {
         const n = Number(val);
