@@ -244,6 +244,13 @@ export function getMediaById(jellyfinId: string): MediaRow | null {
   return row ? rowToMedia(row) : null;
 }
 
+export function getSeasonIdsBySeriesId(seriesId: string): string[] {
+  const rows = openDb()
+    .prepare("SELECT jellyfin_id FROM media WHERE series_id = ? AND item_type = 'Season'")
+    .all(seriesId) as { jellyfin_id: string }[];
+  return rows.map((r) => r.jellyfin_id);
+}
+
 export function searchMedia(slug: string, query: string, limit: number): MediaRow[] {
   const pattern = `%${query}%`;
   return (
