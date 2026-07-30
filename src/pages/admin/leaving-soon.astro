@@ -551,7 +551,10 @@ for (const item of displayItems.filter((i) => leavingSoonEnabledSlugs.has(i.libr
 
       const id = btn.dataset.itemId!;
       try {
-        const resp = await fetch(`/api/admin/leaving-soon/${id}/remove`, { method: 'POST' });
+        const resp = await fetch(`/api/admin/leaving-soon/${id}/remove`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
         const data = await resp.json();
         if (resp.ok) {
           btn.textContent = 'Removed ✓';
