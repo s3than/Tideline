@@ -33,6 +33,10 @@ export function tagItemLeavingSoon(itemId: string, entry: LeavingSoonEntry): voi
   })();
 }
 
+export function removeLeavingSoon(itemId: string): void {
+  openDb().prepare('DELETE FROM leaving_soon WHERE item_id = ?').run(itemId);
+}
+
 export function pruneStaleLeavingSoon(): void {
   openDb()
     .prepare(

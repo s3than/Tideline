@@ -3,6 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import AdminNav from '../../components/admin/AdminNav.astro';
 import SettingsPanel from '../../components/admin/SettingsPanel.svelte';
 import NotificationsPanel from '../../components/admin/NotificationsPanel.svelte';
+import ArrSettingsPanel from '../../components/admin/ArrSettingsPanel.svelte';
 import { getSetting } from '../../lib/db';
 
 const envOverrides: Record<string, string | undefined> = {
@@ -35,6 +36,37 @@ const envLocked = {
   rate_limit_window_minutes: !!envOverrides.rate_limit_window_minutes,
   rate_limit_lockout_minutes: !!envOverrides.rate_limit_lockout_minutes,
 };
+
+const arrSettings = {
+  radarrUrl: import.meta.env.RADARR_URL || process.env.RADARR_URL || getSetting('radarr_url', ''),
+  radarrInternalUrl:
+    import.meta.env.RADARR_INTERNAL_URL ||
+    process.env.RADARR_INTERNAL_URL ||
+    getSetting('radarr_internal_url', ''),
+  hasRadarrApiKey: !!(
+    import.meta.env.RADARR_API_KEY ||
+    process.env.RADARR_API_KEY ||
+    getSetting('radarr_api_key', '')
+  ),
+  sonarrUrl: import.meta.env.SONARR_URL || process.env.SONARR_URL || getSetting('sonarr_url', ''),
+  sonarrInternalUrl:
+    import.meta.env.SONARR_INTERNAL_URL ||
+    process.env.SONARR_INTERNAL_URL ||
+    getSetting('sonarr_internal_url', ''),
+  hassonarrApiKey: !!(
+    import.meta.env.SONARR_API_KEY ||
+    process.env.SONARR_API_KEY ||
+    getSetting('sonarr_api_key', '')
+  ),
+};
+const arrEnvLocked = {
+  radarrUrl: !!(import.meta.env.RADARR_URL || process.env.RADARR_URL),
+  radarrInternalUrl: !!(import.meta.env.RADARR_INTERNAL_URL || process.env.RADARR_INTERNAL_URL),
+  radarrApiKey: !!(import.meta.env.RADARR_API_KEY || process.env.RADARR_API_KEY),
+  sonarrUrl: !!(import.meta.env.SONARR_URL || process.env.SONARR_URL),
+  sonarrInternalUrl: !!(import.meta.env.SONARR_INTERNAL_URL || process.env.SONARR_INTERNAL_URL),
+  sonarrApiKey: !!(import.meta.env.SONARR_API_KEY || process.env.SONARR_API_KEY),
+};
 ---
 
 <Layout title="Admin — Settings — Tideline">
@@ -57,6 +89,25 @@ const envLocked = {
         Configure webhook notifications for leaving-soon events and user activity.
       </p>
       <NotificationsPanel settings={notificationSettings} client:load />
+    </section>
+
+    <section>
+      <h2 class="mb-1 text-lg font-semibold">Media removal</h2>
+      <p class="mb-5 text-sm text-white/40">
+        Sonarr and Radarr connection details for the "Remove" action on the leaving-soon admin page.
+        Configured services unlock per-item removal from the <span class="text-white/60">*arr</span> stack
+        and Jellyfin in one step.
+      </p>
+      <ArrSettingsPanel
+        radarrUrl={arrSettings.radarrUrl}
+        radarrInternalUrl={arrSettings.radarrInternalUrl}
+        hasRadarrApiKey={arrSettings.hasRadarrApiKey}
+        sonarrUrl={arrSettings.sonarrUrl}
+        sonarrInternalUrl={arrSettings.sonarrInternalUrl}
+        hassonarrApiKey={arrSettings.hassonarrApiKey}
+        envLocked={arrEnvLocked}
+        client:load
+      />
     </section>
   </div>
 </Layout>

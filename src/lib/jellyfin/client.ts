@@ -459,3 +459,19 @@ export async function getLeavingSoonItems(
   );
   return data.Items;
 }
+
+export async function deleteJellyfinItem(jellyfinId: string): Promise<void> {
+  const url = `${jellyfinBase()}/Items/${jellyfinId}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const resp = await fetch(url, {
+      method: 'DELETE',
+      headers: makeHeaders(),
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`Jellyfin DELETE /Items/${jellyfinId} returned ${resp.status}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}

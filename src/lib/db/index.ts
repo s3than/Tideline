@@ -24,6 +24,7 @@ export {
   upsertLeavingSoon,
   tagItemLeavingSoon,
   pruneStaleLeavingSoon,
+  removeLeavingSoon,
   leavingSoonExpiry,
 } from './leavingSoon';
 export { getSetting, setSetting } from './settings';
@@ -69,6 +70,7 @@ export {
   getLeavingSoonMedia,
   getAllLeavingSoonMedia,
   getMediaById,
+  getSeasonIdsBySeriesId,
   clearMediaByLibrary,
   getRandomPickFromMedia,
   getMediaStubsForLibrary,

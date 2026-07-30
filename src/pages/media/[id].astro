@@ -18,6 +18,16 @@ import {
   daysFromTags,
   daysUntil,
 } from '../../lib/jellyfin';
+import {
+  findRadarrMovieByTmdbId,
+  isRadarrConfigured,
+  resolveRadarrExternalUrl,
+} from '../../lib/arr/radarr';
+import {
+  findSonarrSeriesByTvdbId,
+  isSonarrConfigured,
+  resolveSonarrExternalUrl,
+} from '../../lib/arr/sonarr';
 import { formatRuntime, leavingBadgeClass } from '../../lib/format';
 
 const { id } = Astro.params;
@@ -117,6 +127,36 @@ const canNominate =
   (nominationLibrary?.viewLeavingSoon ?? true);
 const nominateActive = userId && canNominate ? getNominationItemIdsForUser(userId).has(id) : false;
 const nominationCount = canNominate ? getNominationCount(id) : 0;
+
+// Admin-only arr deep links — non-blocking, null if arr not configured or item not found
+const isAdmin = Astro.locals.user?.isAdministrator ?? false;
+let arrLink: string | null = null;
+let arrLabel: string | null = null;
+if (isAdmin) {
+  if (itemType === 'Movie' && isRadarrConfigured()) {
+    const tmdbId = providerIds?.Tmdb ?? providerIds?.TMDB;
+    if (tmdbId) {
+      const movie = await findRadarrMovieByTmdbId(tmdbId).catch(() => null);
+      if (movie?.titleSlug) {
+        arrLink = `${resolveRadarrExternalUrl()}/movie/${movie.titleSlug}`;
+        arrLabel = 'Radarr';
+      }
+    }
+  } else if ((itemType === 'Series' || itemType === 'Season') && isSonarrConfigured()) {
+    let tvdbId = providerIds?.Tvdb ?? providerIds?.TVDB;
+    if (!tvdbId && itemType === 'Season') {
+      const seriesId = localItem?.seriesId ?? jellyfinDetail?.SeriesId;
+      if (seriesId) tvdbId = getMediaById(seriesId)?.providerIds?.Tvdb;
+    }
+    if (tvdbId) {
+      const series = await findSonarrSeriesByTvdbId(tvdbId).catch(() => null);
+      if (series?.titleSlug) {
+        arrLink = `${resolveSonarrExternalUrl()}/series/${series.titleSlug}`;
+        arrLabel = 'Sonarr';
+      }
+    }
+  }
+}
 
 const backHref = localItem?.librarySlug
   ? `/library/${localItem.librarySlug}`
@@ -372,6 +412,18 @@ if (runtime) textMeta.push(runtime);
             class="inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-2.5 text-sm font-medium text-white/70 transition-colors hover:border-white/30 hover:text-white"
           >
             IMDb
+          </a>
+        )
+      }
+      {
+        arrLink && arrLabel && (
+          <a
+            href={arrLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-2.5 text-sm font-medium text-white/70 transition-colors hover:border-white/30 hover:text-white"
+          >
+            {arrLabel}
           </a>
         )
       }
