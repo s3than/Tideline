@@ -32,6 +32,8 @@ When a leaving-soon item expires, provide an admin action to remove it cleanly f
 
 **Known complication — orphaned metadata:** Radarr and Sonarr sometimes leave behind a metadata folder (`.nfo` files, artwork, etc.) after deleting media files, which causes Jellyfin to retain a stub entry for the item even after a library scan. The removal flow will need to trigger a Jellyfin `DELETE /Items/{itemId}` call after the *arr deletion to forcibly remove the item from the Jellyfin database, rather than relying on a passive scan to clean it up.
 
+**Audit logging:** Each removal action (item name, type, which *arr stack was called, success/failure) should be written to the audit log once that feature is built — see below.
+
 ---
 
 ### Leaving Soon history / archive
@@ -52,7 +54,7 @@ A `/ambient` route that cycles through backdrop images from across the libraries
 
 ### Admin action audit log
 
-Record admin actions in a new `audit_log` table: library syncs, item tag/untag operations, settings changes, session revocations. Surfaced as a read-only log in the admin panel with timestamp, actor, and action. Low priority for single-admin setups but useful for shared household accountability when multiple Jellyfin admins use the panel.
+Record admin actions in a new `audit_log` table: library syncs, item tag/untag operations, media removal via Sonarr/Radarr (item name, type, which *arr stack, success/failure), settings changes, session revocations. Surfaced as a read-only log in the admin panel with timestamp, actor, and action. Low priority for single-admin setups but useful for shared household accountability when multiple Jellyfin admins use the panel.
 
 ### Curated / manual picks
 

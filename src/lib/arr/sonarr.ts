@@ -105,9 +105,8 @@ export async function getSeasonEpisodeFiles(
   sonarrId: number,
   seasonNumber: number,
 ): Promise<SonarrEpisodeFile[]> {
-  return sonarrFetch<SonarrEpisodeFile[]>(
-    `/api/v3/episodefile?seriesId=${sonarrId}&seasonNumber=${seasonNumber}`,
-  );
+  const files = await sonarrFetch<SonarrEpisodeFile[]>(`/api/v3/episodefile?seriesId=${sonarrId}`);
+  return files.filter((f) => f.seasonNumber === seasonNumber);
 }
 
 export async function deleteEpisodeFilesBulk(fileIds: number[]): Promise<void> {

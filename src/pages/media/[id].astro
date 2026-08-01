@@ -8,6 +8,7 @@ import {
   getNominationItemIdsForUser,
   getNominationCount,
   getLibraries,
+  deleteSession,
 } from '../../lib/db';
 import {
   getItemDetail,
@@ -17,6 +18,7 @@ import {
   jellyfinWebUrl,
   daysFromTags,
   daysUntil,
+  JellyfinSessionExpiredError,
 } from '../../lib/jellyfin';
 import {
   findRadarrMovieByTmdbId,
@@ -37,14 +39,30 @@ const userToken = Astro.locals.jellyfinToken;
 const localItem = getMediaById(id);
 const localType = localItem?.itemType ?? null;
 
+function expireSession() {
+  const token = Astro.cookies.get('auth')?.value;
+  if (token) deleteSession(token);
+  Astro.cookies.delete('auth', { path: '/' });
+  return Astro.redirect('/login');
+}
+
 // Fetch detail + sub-items in parallel where type is already known from the local DB.
 // For proxy items (localType null) we do a second pass after resolving the type.
-const [jellyfinDetail, preSeasons, preCollItems, preEpisodes] = await Promise.all([
-  getItemDetail(id, userToken),
-  localType === 'Series' ? getSeriesSeasons(id, userToken) : Promise.resolve([]),
-  localType === 'Collection' ? getCollectionItems(id, userToken) : Promise.resolve([]),
-  localType === 'Season' ? getSeasonEpisodes(id, userToken) : Promise.resolve([]),
-]);
+let jellyfinDetail: Awaited<ReturnType<typeof getItemDetail>>;
+let preSeasons: Awaited<ReturnType<typeof getSeriesSeasons>>;
+let preCollItems: Awaited<ReturnType<typeof getCollectionItems>>;
+let preEpisodes: Awaited<ReturnType<typeof getSeasonEpisodes>>;
+try {
+  [jellyfinDetail, preSeasons, preCollItems, preEpisodes] = await Promise.all([
+    getItemDetail(id, userToken),
+    localType === 'Series' ? getSeriesSeasons(id, userToken) : Promise.resolve([]),
+    localType === 'Collection' ? getCollectionItems(id, userToken) : Promise.resolve([]),
+    localType === 'Season' ? getSeasonEpisodes(id, userToken) : Promise.resolve([]),
+  ]);
+} catch (e) {
+  if (e instanceof JellyfinSessionExpiredError) return expireSession();
+  throw e;
+}
 
 if (!localItem && !jellyfinDetail) {
   return new Response(null, { status: 404 });
@@ -59,9 +77,14 @@ let seasons = preSeasons;
 let collItems = preCollItems;
 let episodes = preEpisodes;
 if (!localType) {
-  if (itemType === 'Series') seasons = await getSeriesSeasons(id, userToken);
-  else if (itemType === 'Collection') collItems = await getCollectionItems(id, userToken);
-  else if (itemType === 'Season') episodes = await getSeasonEpisodes(id, userToken);
+  try {
+    if (itemType === 'Series') seasons = await getSeriesSeasons(id, userToken);
+    else if (itemType === 'Collection') collItems = await getCollectionItems(id, userToken);
+    else if (itemType === 'Season') episodes = await getSeasonEpisodes(id, userToken);
+  } catch (e) {
+    if (e instanceof JellyfinSessionExpiredError) return expireSession();
+    throw e;
+  }
 }
 
 const name = localItem?.name ?? jellyfinDetail?.Name ?? '';

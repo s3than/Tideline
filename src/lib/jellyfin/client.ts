@@ -128,6 +128,13 @@ function makeHeaders(): HeadersInit {
 
 const FETCH_TIMEOUT_MS = 10_000;
 
+export class JellyfinSessionExpiredError extends Error {
+  constructor() {
+    super('Jellyfin session expired');
+    this.name = 'JellyfinSessionExpiredError';
+  }
+}
+
 export async function fetchJson<T>(path: string, userToken?: string): Promise<T> {
   const url = `${jellyfinBase()}${path}`;
   const headers = userToken
@@ -148,6 +155,7 @@ export async function fetchJson<T>(path: string, userToken?: string): Promise<T>
   const ms = Date.now() - start;
   console.log(`[jellyfin] ${resp.status} ${path} (${ms}ms)`);
   if (!resp.ok) {
+    if (resp.status === 401 && userToken) throw new JellyfinSessionExpiredError();
     throw new Error(`Jellyfin API ${resp.status}: ${url}`);
   }
   return resp.json() as Promise<T>;
@@ -297,7 +305,8 @@ export async function getSeasonEpisodes(
       userToken,
     );
     return data.Items ?? [];
-  } catch {
+  } catch (e) {
+    if (e instanceof JellyfinSessionExpiredError) throw e;
     return [];
   }
 }
@@ -312,7 +321,8 @@ export async function getSeriesSeasons(
       userToken,
     );
     return data.Items ?? [];
-  } catch {
+  } catch (e) {
+    if (e instanceof JellyfinSessionExpiredError) throw e;
     return [];
   }
 }
@@ -330,7 +340,8 @@ export async function getCollectionItems(
       userToken,
     );
     return data.Items ?? [];
-  } catch {
+  } catch (e) {
+    if (e instanceof JellyfinSessionExpiredError) throw e;
     return [];
   }
 }
@@ -392,7 +403,8 @@ export async function getItemDetail(
       userToken,
     );
     return data.Items[0] ?? null;
-  } catch {
+  } catch (e) {
+    if (e instanceof JellyfinSessionExpiredError) throw e;
     return null;
   }
 }
