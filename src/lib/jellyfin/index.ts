@@ -1,5 +1,6 @@
 export type { JellyfinItem, JellyfinPerson, Library } from './types';
 export type { ItemStub } from './client';
+export { JellyfinSessionExpiredError } from './client';
 export {
   jellyfinBase,
   jellyfinApiKey,
