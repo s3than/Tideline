@@ -18,6 +18,7 @@ export {
   addItemTags,
   removeItemLeavingSoonTags,
   deleteJellyfinItem,
+  refreshJellyfinLibrary,
   getSeasonEpisodes,
   getSeriesSeasons,
   getCollectionItems,

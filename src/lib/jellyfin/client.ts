@@ -472,6 +472,17 @@ export async function getLeavingSoonItems(
   return data.Items;
 }
 
+export async function refreshJellyfinLibrary(): Promise<void> {
+  const url = `${jellyfinBase()}/Library/Refresh`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    await fetch(url, { method: 'POST', headers: makeHeaders(), signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function deleteJellyfinItem(jellyfinId: string): Promise<void> {
   const url = `${jellyfinBase()}/Items/${jellyfinId}`;
   const controller = new AbortController();

@@ -7,7 +7,7 @@ import {
   clearKeepRequests,
   clearNominations,
 } from '../../../../../lib/db';
-import { deleteJellyfinItem } from '../../../../../lib/jellyfin';
+import { refreshJellyfinLibrary } from '../../../../../lib/jellyfin';
 import {
   findRadarrMovieByTmdbId,
   deleteRadarrMovie,
@@ -45,11 +45,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
         await deleteRadarrMovie(radarrMovie.id);
       }
 
-      await deleteJellyfinItem(id);
       deleteMediaByIds([id]);
       removeLeavingSoon(id);
       clearKeepRequests(id);
       clearNominations(id);
+      void refreshJellyfinLibrary().catch(() => {});
 
       return json({ ok: true, deletedFrom: radarrMovie ? 'radarr+jellyfin' : 'jellyfin' });
     }
@@ -66,8 +66,6 @@ export const POST: APIRoute = async ({ params, locals }) => {
       }
 
       const seasonIds = getSeasonIdsBySeriesId(id);
-      await deleteJellyfinItem(id);
-
       const allIds = [id, ...seasonIds];
       deleteMediaByIds(allIds);
       for (const sid of allIds) {
@@ -75,6 +73,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
         clearKeepRequests(sid);
         clearNominations(sid);
       }
+      void refreshJellyfinLibrary().catch(() => {});
 
       return json({ ok: true, deletedFrom: sonarrSeries ? 'sonarr+jellyfin' : 'jellyfin' });
     }
@@ -98,11 +97,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
         await unmonitorSeason(sonarrSeries.id, item.indexNumber);
       }
 
-      await deleteJellyfinItem(id);
       deleteMediaByIds([id]);
       removeLeavingSoon(id);
       clearKeepRequests(id);
       clearNominations(id);
+      void refreshJellyfinLibrary().catch(() => {});
 
       return json({ ok: true, deletedFrom: sonarrSeries ? 'sonarr+jellyfin' : 'jellyfin' });
     }
