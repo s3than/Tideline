@@ -23,7 +23,7 @@ export function createSession(
   const token = randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
   db.prepare(
-    'INSERT INTO sessions (token, jellyfin_id, jellyfin_token, ip_address, user_agent, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+    "INSERT INTO sessions (token, jellyfin_id, jellyfin_token, ip_address, user_agent, created_at, last_active_at, expires_at) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)",
   ).run(token, jellyfinId, jellyfinToken, ipAddress, userAgent, expiresAt);
 
   return { token, expiresAt };
