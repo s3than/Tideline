@@ -42,34 +42,48 @@ Fix all errors before committing. Warnings that cannot be fixed must be document
 
 ## CSRF Protection in Astro
 
-Astro has built-in CSRF middleware that protects POST/PUT/DELETE requests. Be aware of how it works to avoid 403 Forbidden errors:
+Astro has built-in CSRF middleware that protects POST/PUT/DELETE requests. The solution is simple:
 
-**The issue:** Bodyless requests (no `Content-Type` or `body`) that come from behind a TLS-terminating proxy hit Astro's strict CSRF origin check and fail. This is because Astro cannot verify the request origin reliably in proxied environments.
+**Always add `Content-Type: 'application/json'` header to fetch requests.** This routes the request through Astro's form-only CSRF check, which:
+1. Does not require a CSRF token for JSON requests
+2. Works reliably behind TLS-terminating proxies
 
-**The fix:** Add an explicit `Content-Type: 'application/json'` header to fetch requests. This routes the request through Astro's form-only CSRF check instead, which:
-1. Only blocks HTML form submissions, not `fetch()` API calls
-2. Does not require a CSRF token for JSON requests
-3. Works reliably behind proxies
+Without this header, bodyless requests hit Astro's strict origin check, which fails when behind a proxy and returns 403 Forbidden.
 
-**Pattern for empty requests:**
+**RESTful pattern (recommended):**
+
+Use the appropriate HTTP method semantically:
+- `PUT` for creating/adding resources
+- `DELETE` for removing resources
+- `POST` for complex operations
+
+Always include `Content-Type: 'application/json'` even for bodyless requests.
+
+**Pattern for requests without a body:**
 ```javascript
 const resp = await fetch(url, {
-  method: 'POST', // or PUT, DELETE
+  method: 'DELETE', // or PUT, POST
   headers: { 'Content-Type': 'application/json' },
-  // No body needed
+  // No body
 });
 ```
 
 **Pattern for requests with data:**
 ```javascript
 const resp = await fetch(url, {
-  method: 'POST',
+  method: 'PUT', // or DELETE, POST
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ key: value }),
 });
 ```
 
-See `src/layouts/Layout.astro` (logout), `src/components/LeavingSoonCard.astro` (keep-requests), and `src/pages/media/[id].astro` (nominations) for working examples.
+Working examples:
+- `src/components/LeavingSoonCard.astro` — DELETE/PUT for keep-requests
+- `src/pages/media/[id].astro` — PUT/DELETE for nominations
+- `src/pages/admin/leaving-soon.astro` — DELETE for clearing nominations and keep-requests
+- `src/layouts/Layout.astro` — POST for logout (complex operation, no body)
+
+**Key principle:** The HTTP method should match the semantic operation. The `Content-Type` header is the CSRF fix, not the method choice.
 
 ## Svelte 5 / Astro Conventions
 
