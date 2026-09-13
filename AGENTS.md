@@ -40,6 +40,56 @@ Fix all errors before committing. Warnings that cannot be fixed must be document
 
 **Scope creep.** A bug fix must not silently refactor surrounding code. A new feature must not clean up adjacent files. Keep diffs focused.
 
+## CSRF Protection in Astro
+
+Astro has built-in CSRF middleware that protects POST/PUT/DELETE requests. The solution is simple:
+
+**Always add `Content-Type: 'application/json'` header to fetch requests.** This routes the request through Astro's form-only CSRF check, which:
+
+1. Does not require a CSRF token for JSON requests
+2. Works reliably behind TLS-terminating proxies
+
+Without this header, bodyless requests hit Astro's strict origin check, which fails when behind a proxy and returns 403 Forbidden.
+
+**RESTful pattern (recommended):**
+
+Use the appropriate HTTP method semantically:
+
+- `PUT` for creating/adding resources
+- `DELETE` for removing resources
+- `POST` for complex operations
+
+Always include `Content-Type: 'application/json'` even for bodyless requests.
+
+**Pattern for requests without a body:**
+
+```javascript
+const resp = await fetch(url, {
+  method: 'DELETE', // or PUT, POST
+  headers: { 'Content-Type': 'application/json' },
+  // No body
+});
+```
+
+**Pattern for requests with data:**
+
+```javascript
+const resp = await fetch(url, {
+  method: 'PUT', // or DELETE, POST
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ key: value }),
+});
+```
+
+Working examples:
+
+- `src/components/LeavingSoonCard.astro` — DELETE/PUT for keep-requests
+- `src/pages/media/[id].astro` — PUT/DELETE for nominations
+- `src/pages/admin/leaving-soon.astro` — DELETE for clearing nominations and keep-requests
+- `src/layouts/Layout.astro` — POST for logout (complex operation, no body)
+
+**Key principle:** The HTTP method should match the semantic operation. The `Content-Type` header is the CSRF fix, not the method choice.
+
 ## Svelte 5 / Astro Conventions
 
 - Use Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`) — not Svelte 4 reactive syntax.
