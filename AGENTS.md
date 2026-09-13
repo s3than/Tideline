@@ -40,6 +40,37 @@ Fix all errors before committing. Warnings that cannot be fixed must be document
 
 **Scope creep.** A bug fix must not silently refactor surrounding code. A new feature must not clean up adjacent files. Keep diffs focused.
 
+## CSRF Protection in Astro
+
+Astro has built-in CSRF middleware that protects POST/PUT/DELETE requests. Be aware of how it works to avoid 403 Forbidden errors:
+
+**The issue:** Bodyless requests (no `Content-Type` or `body`) that come from behind a TLS-terminating proxy hit Astro's strict CSRF origin check and fail. This is because Astro cannot verify the request origin reliably in proxied environments.
+
+**The fix:** Add an explicit `Content-Type: 'application/json'` header to fetch requests. This routes the request through Astro's form-only CSRF check instead, which:
+1. Only blocks HTML form submissions, not `fetch()` API calls
+2. Does not require a CSRF token for JSON requests
+3. Works reliably behind proxies
+
+**Pattern for empty requests:**
+```javascript
+const resp = await fetch(url, {
+  method: 'POST', // or PUT, DELETE
+  headers: { 'Content-Type': 'application/json' },
+  // No body needed
+});
+```
+
+**Pattern for requests with data:**
+```javascript
+const resp = await fetch(url, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ key: value }),
+});
+```
+
+See `src/layouts/Layout.astro` (logout), `src/components/LeavingSoonCard.astro` (keep-requests), and `src/pages/media/[id].astro` (nominations) for working examples.
+
 ## Svelte 5 / Astro Conventions
 
 - Use Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`) — not Svelte 4 reactive syntax.
