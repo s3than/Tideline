@@ -45,6 +45,7 @@ Fix all errors before committing. Warnings that cannot be fixed must be document
 Astro has built-in CSRF middleware that protects POST/PUT/DELETE requests. The solution is simple:
 
 **Always add `Content-Type: 'application/json'` header to fetch requests.** This routes the request through Astro's form-only CSRF check, which:
+
 1. Does not require a CSRF token for JSON requests
 2. Works reliably behind TLS-terminating proxies
 
@@ -53,6 +54,7 @@ Without this header, bodyless requests hit Astro's strict origin check, which fa
 **RESTful pattern (recommended):**
 
 Use the appropriate HTTP method semantically:
+
 - `PUT` for creating/adding resources
 - `DELETE` for removing resources
 - `POST` for complex operations
@@ -60,6 +62,7 @@ Use the appropriate HTTP method semantically:
 Always include `Content-Type: 'application/json'` even for bodyless requests.
 
 **Pattern for requests without a body:**
+
 ```javascript
 const resp = await fetch(url, {
   method: 'DELETE', // or PUT, POST
@@ -69,6 +72,7 @@ const resp = await fetch(url, {
 ```
 
 **Pattern for requests with data:**
+
 ```javascript
 const resp = await fetch(url, {
   method: 'PUT', // or DELETE, POST
@@ -78,6 +82,7 @@ const resp = await fetch(url, {
 ```
 
 Working examples:
+
 - `src/components/LeavingSoonCard.astro` — DELETE/PUT for keep-requests
 - `src/pages/media/[id].astro` — PUT/DELETE for nominations
 - `src/pages/admin/leaving-soon.astro` — DELETE for clearing nominations and keep-requests
