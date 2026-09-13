@@ -913,10 +913,10 @@ if (runtime) textMeta.push(runtime);
     const active = btn.dataset.active === 'true';
     try {
       const resp = await fetch(`/api/nominations/${id}`, {
-        method: active ? 'DELETE' : 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: active
-          ? undefined
+          ? JSON.stringify({})
           : JSON.stringify({
               itemName: btn.dataset.itemName,
               librarySlug: btn.dataset.librarySlug || null,

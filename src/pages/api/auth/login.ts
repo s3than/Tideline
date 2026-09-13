@@ -42,9 +42,12 @@ function resolveClientIp(request: Request, clientAddress: string): string | null
 }
 
 export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
+  console.log('[auth/login] POST request received');
   const ip = resolveClientIp(request, clientAddress);
+  console.log('[auth/login] Client IP resolved:', ip);
 
   if (ip && isLoginLocked(ip)) {
+    console.warn('[auth/login] IP locked due to rate limiting:', ip);
     return json({ error: 'Too many failed attempts. Try again later.' }, 429);
   }
 
@@ -53,17 +56,22 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
     const body = (await request.json()) as { username?: string; password?: string };
     username = body.username ?? '';
     password = body.password ?? '';
-  } catch {
+    console.log('[auth/login] Credentials parsed, username:', username ? '***' : '(empty)');
+  } catch (e) {
+    console.error('[auth/login] Failed to parse request body:', e);
     return json({ error: 'Invalid request body' }, 400);
   }
 
   if (!username || !password) {
+    console.warn('[auth/login] Missing username or password');
     return json({ error: 'Username and password are required' }, 400);
   }
 
+  const jellyfinUrl = jellyfinBase();
+  console.log('[auth/login] Attempting Jellyfin auth at:', jellyfinUrl);
   let resp: Response;
   try {
-    resp = await fetch(`${jellyfinBase()}/Users/AuthenticateByName`, {
+    resp = await fetch(`${jellyfinUrl}/Users/AuthenticateByName`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -72,16 +80,30 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
       },
       body: JSON.stringify({ Username: username, Pw: password }),
     });
-  } catch {
+    console.log('[auth/login] Jellyfin response status:', resp.status);
+  } catch (e) {
+    console.error(
+      '[auth/login] Jellyfin request failed:',
+      e instanceof Error ? e.message : String(e),
+    );
     return json({ error: 'Could not reach Jellyfin server' }, 502);
   }
 
   if (!resp.ok) {
+    console.warn('[auth/login] Jellyfin auth rejected (status ' + resp.status + ')');
     if (ip) recordFailedLogin(ip);
     return json({ error: 'Invalid username or password' }, 401);
   }
 
-  const auth = (await resp.json()) as JellyfinAuthResponse;
+  let auth: JellyfinAuthResponse;
+  try {
+    auth = (await resp.json()) as JellyfinAuthResponse;
+    console.log('[auth/login] Jellyfin auth successful for user:', auth.User.Name);
+  } catch (e) {
+    console.error('[auth/login] Failed to parse Jellyfin response:', e);
+    return json({ error: 'Invalid Jellyfin response' }, 502);
+  }
+
   if (ip) clearLoginAttempts(ip);
 
   upsertUser({
@@ -91,12 +113,15 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
     isAdministrator: auth.User.Policy?.IsAdministrator ?? false,
     enableMediaPlayback: auth.User.Policy?.EnableMediaPlayback ?? true,
   });
+  console.log('[auth/login] User upserted:', auth.User.Name);
 
   const userAgent = request.headers.get('user-agent');
   const { token } = createSession(auth.User.Id, auth.AccessToken, ip, userAgent);
+  console.log('[auth/login] Session created for user:', auth.User.Name);
 
   const maxSessions = parseInt(getSetting('max_sessions_per_user', '5'), 10);
   enforceSessionLimit(auth.User.Id, maxSessions);
+  console.log('[auth/login] Session limit enforced (max:', maxSessions + ')');
 
   cookies.set('auth', token, {
     httpOnly: true,
@@ -105,6 +130,7 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
     path: '/',
     maxAge: SESSION_TTL_MS / 1000,
   });
+  console.log('[auth/login] Auth cookie set, login successful');
 
   return json({ ok: true }, 200);
 };
