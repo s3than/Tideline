@@ -586,6 +586,7 @@ for (const item of displayItems.filter((i) => leavingSoonEnabledSlugs.has(i.libr
       try {
         const resp = await fetch(`/api/admin/nominations/${id}?type=${type}`, {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
         });
         if (resp.ok) {
           removeRow(btn);
