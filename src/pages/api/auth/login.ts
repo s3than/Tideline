@@ -75,7 +75,7 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Emby-Authorization':
+        Authorization:
           'MediaBrowser Client="Tideline", Device="Server", DeviceId="tideline-server", Version="1.0.0"',
       },
       body: JSON.stringify({ Username: username, Pw: password }),
